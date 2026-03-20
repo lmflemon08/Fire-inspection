@@ -39,7 +39,7 @@ export default function AdminUsers() {
   };
 
   // 添加用户
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newUser: SystemUser = {
@@ -47,7 +47,8 @@ export default function AdminUsers() {
       id: Date.now().toString(),
     };
     
-    if (!addUser(newUser)) {
+    const success = await addUser(newUser);
+    if (!success) {
       toast.error('用户名已存在');
       return;
     }

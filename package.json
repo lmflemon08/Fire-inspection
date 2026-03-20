@@ -10,6 +10,7 @@
     "start": "vite preview --port 5000 --host"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.9.2",
     "html5-qrcode": "^2.3.8",

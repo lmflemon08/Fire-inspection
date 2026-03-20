@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // 巡检周期类型
 export type InspectionCycle = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
@@ -12,9 +13,9 @@ export interface FireFacility {
   specification: string;
   location: string;
   status: 'pending' | 'normal' | 'abnormal';
-  inspectionCycle: InspectionCycle;  // 巡检周期
-  lastInspectionDate?: string;  // 上次巡检日期
-  nextInspectionDate?: string;  // 下次巡检日期
+  inspectionCycle: InspectionCycle;
+  lastInspectionDate?: string;
+  nextInspectionDate?: string;
 }
 
 // 检查项类型定义
@@ -54,7 +55,7 @@ export interface InspectionRecord {
   inspectorId: string;
   inspectorName: string;
   notes?: string;
-  answers?: CheckItemAnswer[];  // 检查项答案
+  answers?: CheckItemAnswer[];
   date: string;
   time: string;
 }
@@ -82,9 +83,9 @@ export interface DataContextType {
   // 用户
   users: SystemUser[];
   setUsers: React.Dispatch<React.SetStateAction<SystemUser[]>>;
-  addUser: (user: SystemUser) => boolean;
-  updateUser: (id: string, user: Partial<SystemUser>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: SystemUser) => Promise<boolean>;
+  updateUser: (id: string, user: Partial<SystemUser>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   
   // 检查表单
   checkForms: CheckForm[];
@@ -107,13 +108,16 @@ export interface DataContextType {
   };
   
   // 巡检计划相关
-  getMonthlyInspectionTasks: () => FireFacility[];  // 获取本月待检任务
-  getUpcomingInspections: (days?: number) => FireFacility[];  // 获取即将到期的巡检
-  getOverdueInspections: () => FireFacility[];  // 获取已逾期的巡检
-  getAbnormalIssues: () => InspectionRecord[];  // 获取异常问题列表
+  getMonthlyInspectionTasks: () => FireFacility[];
+  getUpcomingInspections: (days?: number) => FireFacility[];
+  getOverdueInspections: () => FireFacility[];
+  getAbnormalIssues: () => InspectionRecord[];
+  
+  // 加载状态
+  loading: boolean;
 }
 
-// 初始消防设施数据
+// 初始数据
 const initialFacilities: FireFacility[] = [
   {
     id: '1',
@@ -201,7 +205,6 @@ const initialFacilities: FireFacility[] = [
   }
 ];
 
-// 初始用户数据
 const initialUsers: SystemUser[] = [
   {
     id: '1',
@@ -241,7 +244,6 @@ const initialUsers: SystemUser[] = [
   }
 ];
 
-// 初始检查表单数据
 const initialCheckForms: CheckForm[] = [
   {
     id: '1',
@@ -441,118 +443,349 @@ const initialCheckForms: CheckForm[] = [
 // 创建上下文
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// 本地存储键名
-const STORAGE_KEYS = {
-  facilities: 'fireFacilities',
-  users: 'systemUsers',
-  inspectionRecords: 'inspectionRecords',
-  checkForms: 'checkForms'
-};
+// 转换函数：数据库格式 -> 前端格式
+const dbToFacility = (db: any): FireFacility => ({
+  id: db.id,
+  code: db.code,
+  type: db.type,
+  model: db.model || '',
+  specification: db.specification || '',
+  location: db.location || '',
+  status: db.status,
+  inspectionCycle: db.inspection_cycle,
+  lastInspectionDate: db.last_inspection_date,
+  nextInspectionDate: db.next_inspection_date
+});
+
+const facilityToDb = (facility: FireFacility) => ({
+  id: facility.id,
+  code: facility.code,
+  type: facility.type,
+  model: facility.model,
+  specification: facility.specification,
+  location: facility.location,
+  status: facility.status,
+  inspection_cycle: facility.inspectionCycle,
+  last_inspection_date: facility.lastInspectionDate,
+  next_inspection_date: facility.nextInspectionDate
+});
+
+const dbToUser = (db: any): SystemUser => ({
+  id: db.id,
+  username: db.username,
+  password: db.password,
+  role: db.role,
+  name: db.name,
+  department: db.department,
+  status: db.status
+});
+
+const userToDb = (user: SystemUser) => ({
+  id: user.id,
+  username: user.username,
+  password: user.password,
+  role: user.role,
+  name: user.name,
+  department: user.department,
+  status: user.status
+});
+
+const dbToCheckForm = (db: any): CheckForm => ({
+  id: db.id,
+  name: db.name,
+  facilityType: db.facility_type,
+  items: db.items,
+  createdAt: db.created_at,
+  updatedAt: db.updated_at
+});
+
+const checkFormToDb = (form: CheckForm) => ({
+  id: form.id,
+  name: form.name,
+  facility_type: form.facilityType,
+  items: form.items,
+  created_at: form.createdAt,
+  updated_at: form.updatedAt
+});
+
+const dbToInspectionRecord = (db: any): InspectionRecord => ({
+  id: db.id,
+  facilityId: db.facility_id,
+  facilityCode: db.facility_code,
+  facilityName: db.facility_name,
+  type: db.type,
+  status: db.status,
+  inspectorId: db.inspector_id,
+  inspectorName: db.inspector_name,
+  notes: db.notes,
+  answers: db.answers,
+  date: db.date,
+  time: db.time
+});
+
+const inspectionRecordToDb = (record: Omit<InspectionRecord, 'id'>) => ({
+  id: Date.now().toString(),
+  facility_id: record.facilityId,
+  facility_code: record.facilityCode,
+  facility_name: record.facilityName,
+  type: record.type,
+  status: record.status,
+  inspector_id: record.inspectorId,
+  inspector_name: record.inspectorName,
+  notes: record.notes,
+  answers: record.answers,
+  date: record.date,
+  time: record.time
+});
 
 // Provider组件
 export function DataProvider({ children }: { children: ReactNode }) {
-  // 初始化消防设施数据
-  const [facilities, setFacilities] = useState<FireFacility[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.facilities);
-    return stored ? JSON.parse(stored) : initialFacilities;
-  });
+  const [facilities, setFacilities] = useState<FireFacility[]>([]);
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [checkForms, setCheckForms] = useState<CheckForm[]>([]);
+  const [inspectionRecords, setInspectionRecords] = useState<InspectionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 初始化用户数据
-  const [users, setUsers] = useState<SystemUser[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.users);
-    return stored ? JSON.parse(stored) : initialUsers;
-  });
-
-  // 初始化巡检记录数据
-  const [inspectionRecords, setInspectionRecords] = useState<InspectionRecord[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.inspectionRecords);
-    return stored ? JSON.parse(stored) : [];
-  });
-
-  // 初始化检查表单数据
-  const [checkForms, setCheckForms] = useState<CheckForm[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.checkForms);
-    return stored ? JSON.parse(stored) : initialCheckForms;
-  });
-
-  // 同步到本地存储
+  // 初始化数据：从 Supabase 加载
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.facilities, JSON.stringify(facilities));
-  }, [facilities]);
+    const loadData = async () => {
+      try {
+        // 加载设施
+        const { data: facilitiesData, error: facilitiesError } = await supabase
+          .from('facilities')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (facilitiesError) throw facilitiesError;
+        
+        if (facilitiesData && facilitiesData.length > 0) {
+          setFacilities(facilitiesData.map(dbToFacility));
+        } else {
+          // 数据库为空，插入初始数据
+          const { error: insertError } = await supabase
+            .from('facilities')
+            .insert(initialFacilities.map(facilityToDb));
+          if (!insertError) {
+            setFacilities(initialFacilities);
+          }
+        }
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
-  }, [users]);
+        // 加载用户
+        const { data: usersData, error: usersError } = await supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (usersError) throw usersError;
+        
+        if (usersData && usersData.length > 0) {
+          setUsers(usersData.map(dbToUser));
+        } else {
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert(initialUsers.map(userToDb));
+          if (!insertError) {
+            setUsers(initialUsers);
+          }
+        }
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.inspectionRecords, JSON.stringify(inspectionRecords));
-  }, [inspectionRecords]);
+        // 加载检查表单
+        const { data: formsData, error: formsError } = await supabase
+          .from('check_forms')
+          .select('*')
+          .order('created_at', { ascending: true });
+        
+        if (formsError) throw formsError;
+        
+        if (formsData && formsData.length > 0) {
+          setCheckForms(formsData.map(dbToCheckForm));
+        } else {
+          const { error: insertError } = await supabase
+            .from('check_forms')
+            .insert(initialCheckForms.map(checkFormToDb));
+          if (!insertError) {
+            setCheckForms(initialCheckForms);
+          }
+        }
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.checkForms, JSON.stringify(checkForms));
-  }, [checkForms]);
+        // 加载巡检记录
+        const { data: recordsData, error: recordsError } = await supabase
+          .from('inspection_records')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (recordsError) throw recordsError;
+        
+        if (recordsData) {
+          setInspectionRecords(recordsData.map(dbToInspectionRecord));
+        }
+
+      } catch (error) {
+        console.error('加载数据失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // 消防设施操作
-  const addFacilities = (newFacilities: FireFacility[]) => {
-    setFacilities(prev => [...prev, ...newFacilities]);
-  };
+  const addFacilities = useCallback(async (newFacilities: FireFacility[]) => {
+    const { error } = await supabase
+      .from('facilities')
+      .insert(newFacilities.map(facilityToDb));
+    
+    if (!error) {
+      setFacilities(prev => [...prev, ...newFacilities]);
+    }
+  }, []);
 
-  const updateFacility = (id: string, updates: Partial<FireFacility>) => {
-    setFacilities(prev => prev.map(f => 
-      f.id === id ? { ...f, ...updates } : f
-    ));
-  };
+  const updateFacility = useCallback(async (id: string, updates: Partial<FireFacility>) => {
+    const dbUpdates: any = {};
+    if (updates.code !== undefined) dbUpdates.code = updates.code;
+    if (updates.type !== undefined) dbUpdates.type = updates.type;
+    if (updates.model !== undefined) dbUpdates.model = updates.model;
+    if (updates.specification !== undefined) dbUpdates.specification = updates.specification;
+    if (updates.location !== undefined) dbUpdates.location = updates.location;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.inspectionCycle !== undefined) dbUpdates.inspection_cycle = updates.inspectionCycle;
+    if (updates.lastInspectionDate !== undefined) dbUpdates.last_inspection_date = updates.lastInspectionDate;
+    if (updates.nextInspectionDate !== undefined) dbUpdates.next_inspection_date = updates.nextInspectionDate;
+    dbUpdates.updated_at = new Date().toISOString();
 
-  const deleteFacility = (id: string) => {
-    setFacilities(prev => prev.filter(f => f.id !== id));
-  };
+    const { error } = await supabase
+      .from('facilities')
+      .update(dbUpdates)
+      .eq('id', id);
+    
+    if (!error) {
+      setFacilities(prev => prev.map(f => 
+        f.id === id ? { ...f, ...updates } : f
+      ));
+    }
+  }, []);
+
+  const deleteFacility = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('facilities')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      setFacilities(prev => prev.filter(f => f.id !== id));
+    }
+  }, []);
 
   // 用户操作
-  const addUser = (user: SystemUser): boolean => {
+  const addUser = useCallback(async (user: SystemUser): Promise<boolean> => {
     if (users.some(u => u.username === user.username)) {
       return false;
     }
-    setUsers(prev => [...prev, user]);
-    return true;
-  };
+    
+    const { error } = await supabase
+      .from('users')
+      .insert(userToDb(user));
+    
+    if (!error) {
+      setUsers(prev => [...prev, user]);
+      return true;
+    }
+    return false;
+  }, [users]);
 
-  const updateUser = (id: string, updates: Partial<SystemUser>) => {
-    setUsers(prev => prev.map(u => 
-      u.id === id ? { ...u, ...updates } : u
-    ));
-  };
+  const updateUser = useCallback(async (id: string, updates: Partial<SystemUser>) => {
+    const dbUpdates: any = {};
+    if (updates.username !== undefined) dbUpdates.username = updates.username;
+    if (updates.password !== undefined) dbUpdates.password = updates.password;
+    if (updates.role !== undefined) dbUpdates.role = updates.role;
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.department !== undefined) dbUpdates.department = updates.department;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
 
-  const deleteUser = (id: string) => {
-    setUsers(prev => prev.filter(u => u.id !== id));
-  };
+    const { error } = await supabase
+      .from('users')
+      .update(dbUpdates)
+      .eq('id', id);
+    
+    if (!error) {
+      setUsers(prev => prev.map(u => 
+        u.id === id ? { ...u, ...updates } : u
+      ));
+    }
+  }, []);
+
+  const deleteUser = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      setUsers(prev => prev.filter(u => u.id !== id));
+    }
+  }, []);
 
   // 检查表单操作
-  const addCheckForm = (form: CheckForm) => {
-    setCheckForms(prev => [...prev, form]);
-  };
+  const addCheckForm = useCallback(async (form: CheckForm) => {
+    const { error } = await supabase
+      .from('check_forms')
+      .insert(checkFormToDb(form));
+    
+    if (!error) {
+      setCheckForms(prev => [...prev, form]);
+    }
+  }, []);
 
-  const updateCheckForm = (id: string, updates: Partial<CheckForm>) => {
-    setCheckForms(prev => prev.map(f => 
-      f.id === id ? { ...f, ...updates } : f
-    ));
-  };
+  const updateCheckForm = useCallback(async (id: string, updates: Partial<CheckForm>) => {
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.facilityType !== undefined) dbUpdates.facility_type = updates.facilityType;
+    if (updates.items !== undefined) dbUpdates.items = updates.items;
 
-  const deleteCheckForm = (id: string) => {
-    setCheckForms(prev => prev.filter(f => f.id !== id));
-  };
+    const { error } = await supabase
+      .from('check_forms')
+      .update(dbUpdates)
+      .eq('id', id);
+    
+    if (!error) {
+      setCheckForms(prev => prev.map(f => 
+        f.id === id ? { ...f, ...updates } : f
+      ));
+    }
+  }, []);
 
-  const getCheckFormByFacilityType = (facilityType: string): CheckForm | undefined => {
+  const deleteCheckForm = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('check_forms')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      setCheckForms(prev => prev.filter(f => f.id !== id));
+    }
+  }, []);
+
+  const getCheckFormByFacilityType = useCallback((facilityType: string): CheckForm | undefined => {
     return checkForms.find(f => f.facilityType === facilityType);
-  };
+  }, [checkForms]);
 
   // 巡检记录操作
-  const addInspectionRecord = (record: Omit<InspectionRecord, 'id'>) => {
-    const newRecord: InspectionRecord = {
-      ...record,
-      id: Date.now().toString()
-    };
-    setInspectionRecords(prev => [newRecord, ...prev]);
-  };
+  const addInspectionRecord = useCallback(async (record: Omit<InspectionRecord, 'id'>) => {
+    const dbRecord = inspectionRecordToDb(record);
+    
+    const { error } = await supabase
+      .from('inspection_records')
+      .insert(dbRecord);
+    
+    if (!error) {
+      const newRecord: InspectionRecord = {
+        ...record,
+        id: dbRecord.id
+      };
+      setInspectionRecords(prev => [newRecord, ...prev]);
+    }
+  }, []);
 
   // 统计数据
   const getFacilityStats = () => {
@@ -578,7 +811,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // 获取即将到期的巡检（默认7天内）
+  // 获取即将到期的巡检
   const getUpcomingInspections = (days: number = 7): FireFacility[] => {
     const now = new Date();
     const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -605,7 +838,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // 获取异常问题列表（从巡检记录中筛选状态为异常的记录）
+  // 获取异常问题列表
   const getAbnormalIssues = (): InspectionRecord[] => {
     return inspectionRecords.filter(record => record.status === 'abnormal');
   };
@@ -634,6 +867,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getUpcomingInspections,
     getOverdueInspections,
     getAbnormalIssues,
+    loading,
   };
 
   return (
