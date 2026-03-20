@@ -104,21 +104,25 @@ export default function AdminFacilities() {
       nextInspectionDate: nextDate
     };
     
-    await addFacilities([newFacility]);
-    setIsAddModalOpen(false);
-    setFormData({
-      code: '',
-      type: '',
-      model: '',
-      specification: '',
-      location: '',
-      status: 'pending' as const,
-      inspectionCycle: 'monthly' as InspectionCycle,
-      lastInspectionDate: '',
-      nextInspectionDate: ''
-    });
-    
-    toast.success('消防设施添加成功');
+    try {
+      await addFacilities([newFacility]);
+      setIsAddModalOpen(false);
+      setFormData({
+        code: '',
+        type: '',
+        model: '',
+        specification: '',
+        location: '',
+        status: 'pending' as const,
+        inspectionCycle: 'monthly' as InspectionCycle,
+        lastInspectionDate: '',
+        nextInspectionDate: ''
+      });
+      toast.success('消防设施添加成功');
+    } catch (error) {
+      console.error('添加失败:', error);
+      toast.error('添加失败，请稍后重试');
+    }
   };
 
   // 根据巡检周期计算下次巡检日期
@@ -257,10 +261,15 @@ export default function AdminFacilities() {
       nextInspectionDate: calculateNextInspectionDate('monthly')
     }));
 
-    await addFacilities(newFacilities);
-    setIsImportModalOpen(false);
-    setImportData([]);
-    toast.success(`成功导入 ${newFacilities.length} 条消防设施数据`);
+    try {
+      await addFacilities(newFacilities);
+      setIsImportModalOpen(false);
+      setImportData([]);
+      toast.success(`成功导入 ${newFacilities.length} 条消防设施数据`);
+    } catch (error) {
+      console.error('导入失败:', error);
+      toast.error('导入失败，请稍后重试');
+    }
   };
 
   // 下载Excel模板

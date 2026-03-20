@@ -632,13 +632,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // 消防设施操作
   const addFacilities = useCallback(async (newFacilities: FireFacility[]) => {
-    const { error } = await supabase
-      .from('facilities')
-      .insert(newFacilities.map(facilityToDb));
+    console.log('正在添加设施到数据库:', newFacilities.length, '条');
     
-    if (!error) {
-      setFacilities(prev => [...prev, ...newFacilities]);
+    const dbData = newFacilities.map(facilityToDb);
+    console.log('转换后的数据库格式:', dbData);
+    
+    const { data, error } = await supabase
+      .from('facilities')
+      .insert(dbData)
+      .select();
+    
+    if (error) {
+      console.error('添加设施失败:', error);
+      throw error;
     }
+    
+    console.log('添加成功，返回数据:', data);
+    setFacilities(prev => [...prev, ...newFacilities]);
   }, []);
 
   const updateFacility = useCallback(async (id: string, updates: Partial<FireFacility>) => {
