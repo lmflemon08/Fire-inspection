@@ -91,7 +91,7 @@ export default function AdminFacilities() {
   };
 
   // 添加消防设施
-  const handleAddFacility = (e: React.FormEvent) => {
+  const handleAddFacility = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // 计算下次巡检日期
@@ -104,7 +104,7 @@ export default function AdminFacilities() {
       nextInspectionDate: nextDate
     };
     
-    setFacilities(prev => [...prev, newFacility]);
+    await addFacilities([newFacility]);
     setIsAddModalOpen(false);
     setFormData({
       code: '',
@@ -162,12 +162,12 @@ export default function AdminFacilities() {
   };
 
   // 保存编辑
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!editingExtinguisher) return;
     
-    updateFacility(editingExtinguisher.id, formData);
+    await updateFacility(editingExtinguisher.id, formData);
     
     setIsEditModalOpen(false);
     setEditingExtinguisher(null);
@@ -187,9 +187,9 @@ export default function AdminFacilities() {
   };
 
   // 删除消防设施
-  const handleDeleteFacility = (facilityId: string) => {
+  const handleDeleteFacility = async (facilityId: string) => {
     if (window.confirm('确定要删除此消防设施吗？删除后将无法恢复。')) {
-      deleteFacility(facilityId);
+      await deleteFacility(facilityId);
       toast.success('消防设施已删除');
     }
   };
@@ -244,7 +244,7 @@ export default function AdminFacilities() {
   };
 
   // 确认导入
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     const newFacilities: FireFacility[] = importData.map((item, index) => ({
       id: `import-${Date.now()}-${index}`,
       code: item.code || generateNewCode(),
@@ -257,7 +257,7 @@ export default function AdminFacilities() {
       nextInspectionDate: calculateNextInspectionDate('monthly')
     }));
 
-    addFacilities(newFacilities);
+    await addFacilities(newFacilities);
     setIsImportModalOpen(false);
     setImportData([]);
     toast.success(`成功导入 ${newFacilities.length} 条消防设施数据`);

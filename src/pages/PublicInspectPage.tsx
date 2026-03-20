@@ -172,7 +172,7 @@ export default function PublicInspectPage() {
   };
 
   // 提交点检结果
-  const handleSubmitInspection = () => {
+  const handleSubmitInspection = async () => {
     if (!validateForm()) return;
     if (!facility) return;
 
@@ -195,7 +195,7 @@ export default function PublicInspectPage() {
 
     // 添加巡检记录
     const now = new Date();
-    addInspectionRecord({
+    await addInspectionRecord({
       facilityId: facility.id,
       facilityCode: facility.code,
       facilityName: facility.location,
