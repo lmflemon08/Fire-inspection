@@ -635,7 +635,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     console.log('正在添加设施到数据库:', newFacilities.length, '条');
     
     const dbData = newFacilities.map(facilityToDb);
-    console.log('转换后的数据库格式:', dbData);
+    console.log('转换后的数据库格式:', JSON.stringify(dbData.slice(0, 2), null, 2));
     
     const { data, error } = await supabase
       .from('facilities')
@@ -643,11 +643,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .select();
     
     if (error) {
-      console.error('添加设施失败:', error);
-      throw error;
+      console.error('添加设施失败 - 错误详情:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw new Error(`数据库错误: ${error.message}`);
     }
     
-    console.log('添加成功，返回数据:', data);
+    console.log('添加成功，返回数据条数:', data?.length);
     setFacilities(prev => [...prev, ...newFacilities]);
   }, []);
 

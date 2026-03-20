@@ -266,9 +266,9 @@ export default function AdminFacilities() {
       setIsImportModalOpen(false);
       setImportData([]);
       toast.success(`成功导入 ${newFacilities.length} 条消防设施数据`);
-    } catch (error) {
-      console.error('导入失败:', error);
-      toast.error('导入失败，请稍后重试');
+    } catch (error: any) {
+      console.error('导入失败详情:', error);
+      toast.error(`导入失败: ${error.message || '请稍后重试'}`);
     }
   };
 
