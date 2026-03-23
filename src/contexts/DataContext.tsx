@@ -666,6 +666,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateFacility = useCallback(async (id: string, updates: Partial<FireFacility>) => {
+    console.log('更新设施:', id, updates);
+    
     const dbUpdates: any = {};
     if (updates.code !== undefined) dbUpdates.code = updates.code;
     if (updates.type !== undefined) dbUpdates.type = updates.type;
@@ -678,15 +680,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (updates.nextInspectionDate !== undefined) dbUpdates.next_inspection_date = updates.nextInspectionDate;
     dbUpdates.updated_at = new Date().toISOString();
 
+    console.log('数据库更新字段:', dbUpdates);
+    
     const { error } = await supabase
       .from('facilities')
       .update(dbUpdates)
       .eq('id', id);
     
-    if (!error) {
-      setFacilities(prev => prev.map(f => 
-        f.id === id ? { ...f, ...updates } : f
-      ));
+    if (error) {
+      console.error('更新设施失败:', error);
+      throw error;
+    }
+    
+    console.log('更新成功，重新加载数据');
+    
+    // 重新从数据库加载以确保同步
+    const { data: allFacilities } = await supabase.from('facilities').select('*');
+    if (allFacilities) {
+      setFacilities(allFacilities.map(dbToFacility));
     }
   }, []);
 
