@@ -226,11 +226,25 @@ export default function AdminFacilities() {
         });
 
         // 过滤掉空行
-        const validData = formattedData.filter(item => item.code && item.type);
+        let validData = formattedData.filter(item => item.code && item.type);
         
         if (validData.length === 0) {
           toast.error('未找到有效数据，请检查Excel格式');
           return;
+        }
+
+        // 检查并去除重复编码（保留最后一条）
+        const codeMap = new Map<string, Partial<FireFacility>>();
+        validData.forEach(item => {
+          if (item.code) {
+            codeMap.set(item.code, item);
+          }
+        });
+        
+        if (codeMap.size < validData.length) {
+          const duplicateCount = validData.length - codeMap.size;
+          toast.warning(`发现 ${duplicateCount} 条重复编码，已自动去重`);
+          validData = Array.from(codeMap.values());
         }
 
         setImportData(validData);
