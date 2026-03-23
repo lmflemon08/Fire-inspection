@@ -17,12 +17,12 @@ export default function AdminFacilities() {
   const [editingExtinguisher, setEditingExtinguisher] = useState<FireFacility | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-// 排序状态
-type SortField = 'code' | 'type' | 'location' | 'nextInspectionDate' | 'status';
-const [sortField, setSortField] = useState<SortField>('code');
-const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  // 排序状态
+  type SortField = 'code' | 'type' | 'location' | 'nextInspectionDate' | 'status';
+  const [sortField, setSortField] = useState<SortField>('code');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
-// Excel导入相关状态
+  // Excel导入相关状态
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importData, setImportData] = useState<Partial<FireFacility>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,49 +65,49 @@ const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   });
 
   // 过滤消防设施
-const filteredFacilities = facilities.filter(facility => 
-  facility.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-  facility.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  facility.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  facility.model.toLowerCase().includes(searchTerm.toLowerCase())
-);
+  const filteredFacilities = facilities.filter(facility => 
+    facility.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    facility.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    facility.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    facility.model.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-// 排序消防设施
-const sortedFacilities = [...filteredFacilities].sort((a, b) => {
-  let valueA: string = '';
-  let valueB: string = '';
-  
-  switch (sortField) {
-    case 'code':
-      valueA = a.code;
-      valueB = b.code;
-      break;
-    case 'type':
-      valueA = a.type;
-      valueB = b.type;
-      break;
-    case 'location':
-      valueA = a.location;
-      valueB = b.location;
-      break;
-    case 'nextInspectionDate':
-      valueA = a.nextInspectionDate || '';
-      valueB = b.nextInspectionDate || '';
-      break;
-    case 'status':
-      valueA = a.status;
-      valueB = b.status;
-      break;
-  }
-  
-  if (sortOrder === 'asc') {
-    return valueA.localeCompare(valueB);
-  } else {
-    return valueB.localeCompare(valueA);
-  }
-});
+  // 排序消防设施
+  const sortedFacilities = [...filteredFacilities].sort((a, b) => {
+    let valueA: string = '';
+    let valueB: string = '';
+    
+    switch (sortField) {
+      case 'code':
+        valueA = a.code;
+        valueB = b.code;
+        break;
+      case 'type':
+        valueA = a.type;
+        valueB = b.type;
+        break;
+      case 'location':
+        valueA = a.location;
+        valueB = b.location;
+        break;
+      case 'nextInspectionDate':
+        valueA = a.nextInspectionDate || '';
+        valueB = b.nextInspectionDate || '';
+        break;
+      case 'status':
+        valueA = a.status;
+        valueB = b.status;
+        break;
+    }
+    
+    if (sortOrder === 'asc') {
+      return valueA.localeCompare(valueB);
+    } else {
+      return valueB.localeCompare(valueA);
+    }
+  });
 
-// 判断是否逾期
+  // 判断是否逾期
   const isOverdue = (dateStr: string): boolean => {
     const date = new Date(dateStr);
     const today = new Date();
@@ -535,7 +535,11 @@ const sortedFacilities = [...filteredFacilities].sort((a, b) => {
              
              <button 
                onClick={handleDownloadTemplate}
-               ...下载导入模板...
+               className="inline-flex items-center px-4 py-2 font-medium rounded-md transition duration-300 border"
+               style={{ backgroundColor: '#FFFFFF', color: '#595959', borderColor: '#D9D9D9' }}
+             >
+               <i className="fa-solid fa-download mr-2"></i>
+               下载导入模板
              </button>
            </motion.div>
 
