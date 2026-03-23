@@ -211,23 +211,31 @@ export default function AdminFacilities() {
     
     if (!editingExtinguisher) return;
     
-    await updateFacility(editingExtinguisher.id, formData);
+    console.log('保存编辑，设施ID:', editingExtinguisher.id);
+    console.log('表单数据:', formData);
     
-    setIsEditModalOpen(false);
-    setEditingExtinguisher(null);
-    setFormData({
-      code: '',
-      type: '',
-      model: '',
-      specification: '',
-      location: '',
-      status: 'pending' as const,
-      inspectionCycle: 'monthly' as InspectionCycle,
-      lastInspectionDate: '',
-      nextInspectionDate: ''
-    });
-    
-    toast.success('消防设施信息更新成功');
+    try {
+      await updateFacility(editingExtinguisher.id, formData);
+      
+      setIsEditModalOpen(false);
+      setEditingExtinguisher(null);
+      setFormData({
+        code: '',
+        type: '',
+        model: '',
+        specification: '',
+        location: '',
+        status: 'pending' as const,
+        inspectionCycle: 'monthly' as InspectionCycle,
+        lastInspectionDate: '',
+        nextInspectionDate: ''
+      });
+      
+      toast.success('消防设施信息更新成功');
+    } catch (error: any) {
+      console.error('保存失败:', error);
+      toast.error(`保存失败: ${error.message || '请稍后重试'}`);
+    }
   };
 
   // 删除消防设施
