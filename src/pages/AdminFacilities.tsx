@@ -17,7 +17,12 @@ export default function AdminFacilities() {
   const [editingExtinguisher, setEditingExtinguisher] = useState<FireFacility | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Excel导入相关状态
+// 排序状态
+type SortField = 'code' | 'type' | 'location' | 'nextInspectionDate' | 'status';
+const [sortField, setSortField] = useState<SortField>('code');
+const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+// Excel导入相关状态
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importData, setImportData] = useState<Partial<FireFacility>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,14 +65,49 @@ export default function AdminFacilities() {
   });
 
   // 过滤消防设施
-  const filteredFacilities = facilities.filter(facility => 
-    facility.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    facility.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    facility.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    facility.model.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+const filteredFacilities = facilities.filter(facility => 
+  facility.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  facility.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  facility.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  facility.model.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
-  // 判断是否逾期
+// 排序消防设施
+const sortedFacilities = [...filteredFacilities].sort((a, b) => {
+  let valueA: string = '';
+  let valueB: string = '';
+  
+  switch (sortField) {
+    case 'code':
+      valueA = a.code;
+      valueB = b.code;
+      break;
+    case 'type':
+      valueA = a.type;
+      valueB = b.type;
+      break;
+    case 'location':
+      valueA = a.location;
+      valueB = b.location;
+      break;
+    case 'nextInspectionDate':
+      valueA = a.nextInspectionDate || '';
+      valueB = b.nextInspectionDate || '';
+      break;
+    case 'status':
+      valueA = a.status;
+      valueB = b.status;
+      break;
+  }
+  
+  if (sortOrder === 'asc') {
+    return valueA.localeCompare(valueB);
+  } else {
+    return valueB.localeCompare(valueA);
+  }
+});
+
+// 判断是否逾期
   const isOverdue = (dateStr: string): boolean => {
     const date = new Date(dateStr);
     const today = new Date();
@@ -495,13 +535,66 @@ export default function AdminFacilities() {
              
              <button 
                onClick={handleDownloadTemplate}
-               className="inline-flex items-center px-4 py-2 font-medium rounded-md transition duration-300 border"
-               style={{ backgroundColor: '#FFFFFF', color: '#595959', borderColor: '#D9D9D9' }}
-             >
-               <i className="fa-solid fa-download mr-2"></i>
-               下载导入模板
+               ...下载导入模板...
              </button>
            </motion.div>
+
+          {/* 搜索和排序栏 */}
+          <motion.div 
+            className="flex flex-wrap gap-4 mb-4 items-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+          >
+            {/* 搜索框 */}
+            <div className="relative flex-1 min-w-[200px]">
+              <i className="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input
+                type="text"
+                placeholder="搜索编号、类型、型号、放置点位..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <i className="fa-solid fa-times"></i>
+                </button>
+              )}
+            </div>
+            
+            {/* 排序选择 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">排序:</span>
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as SortField)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="code">编号</option>
+                <option value="type">类型</option>
+                <option value="location">放置点位</option>
+                <option value="nextInspectionDate">下次巡检</option>
+                <option value="status">状态</option>
+              </select>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title={sortOrder === 'asc' ? '升序' : '降序'}
+              >
+                <i className={`fa-solid fa-sort-${sortOrder === 'asc' ? 'up' : 'down'}`}></i>
+              </button>
+            </div>
+          </motion.div>
+
+          {/* 数据统计 */}
+          <div className="mb-4 text-sm text-gray-500">
+            共 <span className="font-medium text-gray-700">{sortedFacilities.length}</span> 条记录
+            {searchTerm && ` (筛选自 ${facilities.length} 条)`}
+          </div>
 
           {/* 灭火器列表 */}
           <motion.div 
@@ -527,7 +620,7 @@ export default function AdminFacilities() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   <AnimatePresence>
-                     {filteredFacilities.map((facility) => (
+                     {sortedFacilities.map((facility) => (
                        <motion.tr 
                          key={facility.id}
                          className="hover:bg-gray-50 transition-colors"
