@@ -10,7 +10,7 @@ export default function PublicInspectPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, userInfo } = useContext(AuthContext);
-  const { facilities, updateFacility, addInspectionRecord, getCheckFormByFacilityType, inspectionRecords } = useData();
+  const { facilities, updateFacility, addInspectionRecord, getCheckFormByFacilityType, inspectionRecords, loading } = useData();
   
   const [facility, setFacility] = useState<{
     id: string;
@@ -245,6 +245,27 @@ export default function PublicInspectPage() {
     }
   };
 
+  // 加载中状态
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <motion.div 
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center max-w-md w-full"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <i className="fa-solid fa-spinner text-3xl text-blue-500 animate-spin"></i>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">加载中...</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            正在获取设施信息，请稍候
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+  
   if (!facility) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
