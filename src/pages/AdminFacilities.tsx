@@ -263,17 +263,25 @@ export default function AdminFacilities() {
 
   // 确认导入
   const handleConfirmImport = async () => {
-    const newFacilities: FireFacility[] = importData.map((item, index) => ({
-      id: `import-${Date.now()}-${index}`,
-      code: item.code || generateNewCode(),
-      type: item.type || '',
-      model: item.model || '',
-      specification: item.specification || '',
-      location: item.location || '',
-      status: 'pending' as const,
-      inspectionCycle: 'monthly' as InspectionCycle,
-      nextInspectionDate: calculateNextInspectionDate('monthly')
-    }));
+    // 转换数据并去重（按编码去重，保留最后一条）
+    const facilityMap = new Map<string, FireFacility>();
+    importData.forEach((item, index) => {
+      const code = item.code || generateNewCode();
+      facilityMap.set(code, {
+        id: `import-${Date.now()}-${index}`,
+        code: code,
+        type: item.type || '',
+        model: item.model || '',
+        specification: item.specification || '',
+        location: item.location || '',
+        status: 'pending' as const,
+        inspectionCycle: 'monthly' as InspectionCycle,
+        nextInspectionDate: calculateNextInspectionDate('monthly')
+      });
+    });
+    
+    const newFacilities = Array.from(facilityMap.values());
+    console.log('准备导入的设施数量:', newFacilities.length, '条');
 
     try {
       await addFacilities(newFacilities);
