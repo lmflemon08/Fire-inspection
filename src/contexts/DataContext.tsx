@@ -630,13 +630,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  // 消防设施操作
+  // 消防设施操作 - 使用 upsert 处理重复编码
   const addFacilities = useCallback(async (newFacilities: FireFacility[]) => {
     console.log('正在添加设施到数据库:', newFacilities.length, '条');
     
-    const dbData = newFacilities.map(facilityToDb);
+    // 去重：按编码去重，保留最后一条（防止批量数据内部重复）
+    const codeMap = new Map<string, FireFacility>();
+    newFacilities.forEach(f => {
+      codeMap.set(f.code, f);
+    });
+    const uniqueFacilities = Array.from(codeMap.values());
+    console.log('去重后设施数量:', uniqueFacilities.length, '条');
+    
+    const dbData = uniqueFacilities.map(facilityToDb);
     console.log('转换后的数据库格式:', JSON.stringify(dbData.slice(0, 2), null, 2));
     
+    // 使用 upsert：如果编码已存在则更新，否则插入新记录
     const { data, error } = await supabase
       .from('facilities')
       .upsert(dbData, { onConflict: 'code' })
