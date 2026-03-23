@@ -639,7 +639,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     const { data, error } = await supabase
       .from('facilities')
-      .insert(dbData)
+      .upsert(dbData, { onConflict: 'code' })
       .select();
     
     if (error) {
