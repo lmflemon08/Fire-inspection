@@ -344,27 +344,42 @@ export default function AdminFacilities() {
 
   // 下载Excel模板
   const handleDownloadTemplate = () => {
+    // 计算示例的下次巡检日期（下个月今天）
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextInspectionDate = nextMonth.toISOString().split('T')[0];
+
     const templateData = [
       {
         '编号': 'MHQ001',
         '类型': '干粉灭火器',
         '型号': 'MFZ/ABC4',
         '规格': '4kg',
-        '放置点位': '大门口'
+        '放置点位': '大门口',
+        '周期': '每月',
+        '下次巡检日期': nextInspectionDate,
+        '状态': '待检'
       },
       {
         '编号': 'MHQ002',
         '类型': '二氧化碳灭火器',
         '型号': 'MT3',
         '规格': '3kg',
-        '放置点位': '会议室'
+        '放置点位': '会议室',
+        '周期': '每月',
+        '下次巡检日期': nextInspectionDate,
+        '状态': '待检'
       },
       {
         '编号': 'MHQ003',
         '类型': '消火栓',
         '型号': 'SS100/65-1.6',
         '规格': 'DN100',
-        '放置点位': '走廊'
+        '放置点位': '走廊',
+        '周期': '每月',
+        '下次巡检日期': nextInspectionDate,
+        '状态': '待检'
       }
     ];
 
@@ -374,11 +389,14 @@ export default function AdminFacilities() {
 
     // 设置列宽
     ws['!cols'] = [
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 15 },
-      { wch: 10 },
-      { wch: 20 }
+      { wch: 12 },  // 编号
+      { wch: 15 },  // 类型
+      { wch: 15 },  // 型号
+      { wch: 10 },  // 规格
+      { wch: 20 },  // 放置点位
+      { wch: 10 },  // 周期
+      { wch: 15 },  // 下次巡检日期
+      { wch: 8 }    // 状态
     ];
 
     XLSX.writeFile(wb, '消防设施导入模板.xlsx');
