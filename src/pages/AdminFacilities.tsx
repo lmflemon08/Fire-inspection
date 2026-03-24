@@ -22,10 +22,16 @@ export default function AdminFacilities() {
   const [sortField, setSortField] = useState<SortField>('code');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
+  // 批量选择状态
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
   // Excel导入相关状态
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importData, setImportData] = useState<Partial<FireFacility>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 批量下载二维码状态
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
   
   // 消防设施类型选项
   const facilityTypes = ['干粉灭火器', '二氧化碳灭火器', '消火栓', '泡沫灭火器', '水型灭火器', '其他'];
@@ -344,9 +350,11 @@ export default function AdminFacilities() {
 
   // 确认导入
   const handleConfirmImport = async () => {
+    // 转换数据并去重（按编码去重，保留最后一条）
     const facilityMap = new Map<string, FireFacility>();
     importData.forEach((item, index) => {
       const code = item.code || generateNewCode();
+      // 使用导入数据中的周期和下次巡检日期，如果没有则使用默认值
       const cycle = item.inspectionCycle || 'monthly';
       const nextDate = item.nextInspectionDate || calculateNextInspectionDate(cycle);
       
@@ -441,6 +449,156 @@ export default function AdminFacilities() {
   // 删除导入预览中的某一行
   const handleRemoveImportRow = (index: number) => {
     setImportData(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 全选/取消全选
+  const handleSelectAll = () => {
+    if (selectedIds.size === sortedFacilities.length) {
+      // 取消全选
+      setSelectedIds(new Set());
+    } else {
+      // 全选
+      setSelectedIds(new Set(sortedFacilities.map(f => f.id)));
+    }
+  };
+
+  // 单个选择/取消选择
+  const handleSelectOne = (facilityId: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(facilityId)) {
+      newSelected.delete(facilityId);
+    } else {
+      newSelected.add(facilityId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  // 批量删除消防设施
+  const handleBatchDelete = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('请先选择要删除的设施');
+      return;
+    }
+    
+    const count = selectedIds.size;
+    if (window.confirm(`确定要删除选中的 ${count} 个消防设施吗？删除后将无法恢复。`)) {
+      try {
+        // 逐个删除选中的设施
+        for (const facilityId of selectedIds) {
+          await deleteFacility(facilityId);
+        }
+        setSelectedIds(new Set());
+        toast.success(`成功删除 ${count} 个消防设施`);
+      } catch (error) {
+        console.error('批量删除失败:', error);
+        toast.error('批量删除失败，请稍后重试');
+      }
+    }
+  };
+
+  // 批量下载二维码
+  const handleBatchDownloadQRCodes = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('请先选择要下载二维码的设施');
+      return;
+    }
+    
+    setIsBatchDownloading(true);
+    
+    try {
+      // 获取选中的设施
+      const selectedFacilities = facilities.filter(f => selectedIds.has(f.id));
+      
+      // 使用 JSZip 打包下载
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      // 使用 qrcode-generator 生成二维码
+      const qrGenerator = await import('qrcode-generator');
+      
+      // 生成每个设施的二维码图片
+      for (const facility of selectedFacilities) {
+        const qrData = `${typeof window !== 'undefined' ? window.location.origin : ''}/inspect/${facility.code}`;
+        
+        // 使用 canvas 生成二维码图片
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
+        
+        // 设置canvas尺寸
+        const scale = 4;
+        const qrSize = 200;
+        const padding = 16;
+        const labelHeight = 60;
+        const totalHeight = qrSize + padding * 2 + labelHeight;
+        const totalWidth = qrSize + padding * 2;
+        
+        canvas.width = totalWidth * scale;
+        canvas.height = totalHeight * scale;
+        
+        // 填充白色背景
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 使用 qrcode-generator 库生成二维码矩阵
+        // @ts-expect-error qrcode-generator 动态导入
+        const qrCode = qrGenerator.default ? qrGenerator.default(0, 'M') : qrGenerator(0, 'M');
+        qrCode.addData(qrData);
+        qrCode.make();
+        
+        // 绘制二维码
+        const cellSize = qrSize / qrCode.getModuleCount();
+        ctx.fillStyle = '#000000';
+        for (let row = 0; row < qrCode.getModuleCount(); row++) {
+          for (let col = 0; col < qrCode.getModuleCount(); col++) {
+            if (qrCode.isDark(row, col)) {
+              ctx.fillRect(
+                (padding + col * cellSize) * scale,
+                (padding + row * cellSize) * scale,
+                cellSize * scale,
+                cellSize * scale
+              );
+            }
+          }
+        }
+        
+        // 绘制底部蓝色标签区域
+        const labelY = (padding + qrSize) * scale;
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(0, labelY, canvas.width, labelHeight * scale);
+        
+        // 绘制设施编号（白色文字）
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.font = `bold ${24 * scale}px Arial, sans-serif`;
+        ctx.fillText(facility.code, canvas.width / 2, labelY + 26 * scale);
+        
+        // 绘制类型（较小字体）
+        ctx.font = `${14 * scale}px Arial, sans-serif`;
+        ctx.fillStyle = '#bfdbfe';
+        ctx.fillText(facility.type, canvas.width / 2, labelY + 46 * scale);
+        
+        // 将图片添加到 zip
+        const imgData = canvas.toDataURL('image/png').split(',')[1];
+        zip.file(`${facility.code}_二维码.png`, imgData, { base64: true });
+      }
+      
+      // 下载 zip 文件
+      const content = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = `消防设施二维码_${new Date().toISOString().split('T')[0]}.zip`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      
+      toast.success(`成功下载 ${selectedFacilities.length} 个二维码`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('批量下载二维码失败:', error);
+      toast.error('批量下载二维码失败，请稍后重试');
+    } finally {
+      setIsBatchDownloading(false);
+    }
   };
 
   // 查看二维码状态
@@ -602,6 +760,44 @@ export default function AdminFacilities() {
                <i className="fa-solid fa-download mr-2"></i>
                下载导入模板
              </button>
+             
+             {/* 批量操作按钮 - 当有选中项时显示 */}
+             {selectedIds.size > 0 && (
+               <div className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                 <span className="text-sm text-blue-700">
+                   已选择 <span className="font-bold">{selectedIds.size}</span> 项
+                 </span>
+                 <button 
+                   onClick={() => setSelectedIds(new Set())}
+                   className="text-blue-600 hover:text-blue-800 text-sm"
+                 >
+                   取消选择
+                 </button>
+               </div>
+             )}
+             
+             {selectedIds.size > 0 && (
+               <>
+                 <button 
+                   onClick={handleBatchDownloadQRCodes}
+                   disabled={isBatchDownloading}
+                   className="inline-flex items-center px-4 py-2 font-medium rounded-md transition duration-300 border disabled:opacity-50 disabled:cursor-not-allowed"
+                   style={{ backgroundColor: '#E8F3FF', color: '#1677FF', borderColor: '#91CAFF' }}
+                 >
+                   <i className={`fa-solid ${isBatchDownloading ? 'fa-spinner fa-spin' : 'fa-qrcode'} mr-2`}></i>
+                   {isBatchDownloading ? '生成中...' : '批量下载二维码'}
+                 </button>
+                 
+                 <button 
+                   onClick={handleBatchDelete}
+                   className="inline-flex items-center px-4 py-2 font-medium rounded-md transition duration-300 border"
+                   style={{ backgroundColor: '#FFF1F0', color: '#FF4D4F', borderColor: '#FFA39E' }}
+                 >
+                   <i className="fa-solid fa-trash-can mr-2"></i>
+                   批量删除
+                 </button>
+               </>
+             )}
            </motion.div>
 
           {/* 搜索和排序栏 */}
@@ -672,6 +868,14 @@ export default function AdminFacilities() {
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th scope="col" className="px-3 py-2 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size === sortedFacilities.length && sortedFacilities.length > 0}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>编号</th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>类型</th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>型号</th>
@@ -688,13 +892,21 @@ export default function AdminFacilities() {
                      {sortedFacilities.map((facility) => (
                        <motion.tr 
                          key={facility.id}
-                         className="hover:bg-gray-50 transition-colors"
+                         className={`hover:bg-gray-50 transition-colors ${selectedIds.has(facility.id) ? 'bg-blue-50' : ''}`}
                          variants={itemVariants}
                          initial="hidden"
                          animate="visible"
                          exit={{ opacity: 0, height: 0 }}
                          transition={{ duration: 0.3 }}
                        >
+                         <td className="px-3 py-2">
+                           <input
+                             type="checkbox"
+                             checked={selectedIds.has(facility.id)}
+                             onChange={() => handleSelectOne(facility.id)}
+                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                           />
+                         </td>
                          <td className="px-3 py-2 text-xs font-medium whitespace-nowrap" style={{ color: '#333333' }}>{facility.code}</td>
                          <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>{facility.type}</td>
                          <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>{facility.model}</td>
