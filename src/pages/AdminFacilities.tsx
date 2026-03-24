@@ -260,8 +260,39 @@ export default function AdminFacilities() {
         const ws = wb.Sheets[wsname];
         const data = XLSX.utils.sheet_to_json(ws) as Record<string, unknown>[];
 
+        // 周期映射
+        const cycleMap: Record<string, InspectionCycle> = {
+          '每周': 'weekly',
+          '每月': 'monthly',
+          '每季': 'quarterly',
+          '每季度': 'quarterly',
+          '每年': 'yearly',
+          'weekly': 'weekly',
+          'monthly': 'monthly',
+          'quarterly': 'quarterly',
+          'yearly': 'yearly'
+        };
+
+        // 状态映射
+        const statusMap: Record<string, 'pending' | 'normal' | 'abnormal'> = {
+          '待检': 'pending',
+          '正常': 'normal',
+          '异常': 'abnormal',
+          'pending': 'pending',
+          'normal': 'normal',
+          'abnormal': 'abnormal'
+        };
+
         // 验证并转换数据
         const formattedData: Partial<FireFacility>[] = data.map((row, index) => {
+          // 解析周期
+          const cycleText = String(row['周期'] || row['inspectionCycle'] || '每月');
+          const inspectionCycle = cycleMap[cycleText] || 'monthly';
+          
+          // 解析状态
+          const statusText = String(row['状态'] || row['status'] || '待检');
+          const status = statusMap[statusText] || 'pending';
+
           return {
             id: `import-${Date.now()}-${index}`,
             code: String(row['编号'] || row['code'] || ''),
@@ -269,7 +300,9 @@ export default function AdminFacilities() {
             model: String(row['型号'] || row['model'] || ''),
             specification: String(row['规格'] || row['specification'] || ''),
             location: String(row['放置点位'] || row['location'] || ''),
-            status: 'pending' as const
+            inspectionCycle: inspectionCycle,
+            nextInspectionDate: String(row['下次巡检日期'] || row['nextInspectionDate'] || ''),
+            status: status
           };
         });
 
@@ -311,10 +344,12 @@ export default function AdminFacilities() {
 
   // 确认导入
   const handleConfirmImport = async () => {
-    // 转换数据并去重（按编码去重，保留最后一条）
     const facilityMap = new Map<string, FireFacility>();
     importData.forEach((item, index) => {
       const code = item.code || generateNewCode();
+      const cycle = item.inspectionCycle || 'monthly';
+      const nextDate = item.nextInspectionDate || calculateNextInspectionDate(cycle);
+      
       facilityMap.set(code, {
         id: `import-${Date.now()}-${index}`,
         code: code,
@@ -322,9 +357,9 @@ export default function AdminFacilities() {
         model: item.model || '',
         specification: item.specification || '',
         location: item.location || '',
-        status: 'pending' as const,
-        inspectionCycle: 'monthly' as InspectionCycle,
-        nextInspectionDate: calculateNextInspectionDate('monthly')
+        status: item.status || 'pending',
+        inspectionCycle: cycle,
+        nextInspectionDate: nextDate
       });
     });
     
