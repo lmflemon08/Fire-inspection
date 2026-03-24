@@ -466,8 +466,9 @@ const facilityToDb = (facility: FireFacility) => ({
   location: facility.location,
   status: facility.status,
   inspection_cycle: facility.inspectionCycle,
-  last_inspection_date: facility.lastInspectionDate,
-  next_inspection_date: facility.nextInspectionDate
+  // 日期字段：空字符串转为 null
+  last_inspection_date: facility.lastInspectionDate || null,
+  next_inspection_date: facility.nextInspectionDate || null
 });
 
 const dbToUser = (db: any): SystemUser => ({
@@ -676,8 +677,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (updates.location !== undefined) dbUpdates.location = updates.location;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.inspectionCycle !== undefined) dbUpdates.inspection_cycle = updates.inspectionCycle;
-    if (updates.lastInspectionDate !== undefined) dbUpdates.last_inspection_date = updates.lastInspectionDate;
-    if (updates.nextInspectionDate !== undefined) dbUpdates.next_inspection_date = updates.nextInspectionDate;
+    // 日期字段：空字符串转为 null
+    if (updates.lastInspectionDate !== undefined) {
+      dbUpdates.last_inspection_date = updates.lastInspectionDate || null;
+    }
+    if (updates.nextInspectionDate !== undefined) {
+      dbUpdates.next_inspection_date = updates.nextInspectionDate || null;
+    }
     dbUpdates.updated_at = new Date().toISOString();
 
     console.log('数据库更新字段:', dbUpdates);
