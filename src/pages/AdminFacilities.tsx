@@ -252,6 +252,34 @@ export default function AdminFacilities() {
     }
   };
 
+  // Excel日期序列号转换为日期字符串
+  const excelDateToString = (value: unknown): string => {
+    if (!value) return '';
+    
+    // 如果是数字，认为是Excel日期序列号
+    if (typeof value === 'number') {
+      // Excel日期序列号从1900年1月1日开始，需要减去2天修正Excel的闰年bug
+      const excelEpoch = new Date(1899, 11, 30); // 1899年12月30日
+      const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+      return date.toISOString().split('T')[0];
+    }
+    
+    // 如果是字符串，检查是否是数字字符串（Excel日期序列号）
+    const strValue = String(value);
+    if (/^\d+$/.test(strValue) && strValue.length >= 4) {
+      const numValue = parseInt(strValue, 10);
+      // 合理的Excel日期序列号范围（1900-2100年大约是1-73050）
+      if (numValue > 1 && numValue < 80000) {
+        const excelEpoch = new Date(1899, 11, 30);
+        const date = new Date(excelEpoch.getTime() + numValue * 24 * 60 * 60 * 1000);
+        return date.toISOString().split('T')[0];
+      }
+    }
+    
+    // 已经是日期字符串格式，直接返回
+    return strValue;
+  };
+
   // Excel导入处理
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -298,6 +326,10 @@ export default function AdminFacilities() {
           // 解析状态
           const statusText = String(row['状态'] || row['status'] || '待检');
           const status = statusMap[statusText] || 'pending';
+          
+          // 解析下次巡检日期（处理Excel日期序列号）
+          const nextInspectionDateRaw = row['下次巡检日期'] || row['nextInspectionDate'];
+          const nextInspectionDate = excelDateToString(nextInspectionDateRaw);
 
           return {
             id: `import-${Date.now()}-${index}`,
@@ -307,7 +339,7 @@ export default function AdminFacilities() {
             specification: String(row['规格'] || row['specification'] || ''),
             location: String(row['放置点位'] || row['location'] || ''),
             inspectionCycle: inspectionCycle,
-            nextInspectionDate: String(row['下次巡检日期'] || row['nextInspectionDate'] || ''),
+            nextInspectionDate: nextInspectionDate,
             status: status
           };
         });
