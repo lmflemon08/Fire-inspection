@@ -244,12 +244,6 @@ export default function Login() {
               )}
             </button>
           </motion.div>
-          
-          <motion.div variants={itemVariants} className="text-center text-sm mt-4">
-            <p className="text-gray-600 dark:text-gray-300">
-              提示：管理员账号 <span className="font-medium text-blue-600">admin/admin123</span>，巡检员账号 <span className="font-medium text-blue-600">inspector/inspector123</span>
-            </p>
-          </motion.div>
         </motion.form>
       </motion.div>
     </div>
