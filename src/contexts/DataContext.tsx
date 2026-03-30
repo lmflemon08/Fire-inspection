@@ -56,6 +56,7 @@ export interface InspectionRecord {
   inspectorName: string;
   notes?: string;
   answers?: CheckItemAnswer[];
+  photos?: string[];
   date: string;
   time: string;
 }
@@ -662,8 +663,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       throw new Error(`数据库错误: ${error.message}`);
     }
     
-    console.log('添加成功，返回数据条数:', data?.length);
-    setFacilities(prev => [...prev, ...newFacilities]);
+    console.log('操作成功，返回数据条数:', data?.length);
+    // 更新本地状态：重新从数据库加载以确保同步
+    const { data: allFacilities } = await supabase.from('facilities').select('*');
+    if (allFacilities) {
+      setFacilities(allFacilities.map(dbToFacility));
+    }
   }, []);
 
   const updateFacility = useCallback(async (id: string, updates: Partial<FireFacility>) => {
