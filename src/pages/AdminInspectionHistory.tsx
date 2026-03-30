@@ -419,37 +419,124 @@ export default function AdminInspectionHistory() {
                   </div>
                 </div>
                 
-                {/* 检查项答案 */}
+                {/* 检查项答案 - 优化展示 */}
                 {selectedRecord.answers && selectedRecord.answers.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">检查项结果</label>
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 space-y-2">
-                      {selectedRecord.answers.map((answer, index) => (
-                        <div key={index} className="flex items-start text-sm">
-                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold mr-2 flex-shrink-0">
-                            {index + 1}
-                          </span>
-                          <div className="flex-1">
-                            <span className="text-gray-700 dark:text-gray-300">{answer.question}: </span>
-                            <span className={`font-medium ${
-                              typeof answer.answer === 'string' && 
-                              (answer.answer.includes('异常') || answer.answer.includes('损坏') || answer.answer.includes('否'))
-                                ? 'text-red-600 dark:text-red-400'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
+                      <i className="fa-solid fa-clipboard-check mr-1"></i>
+                      检查项结果 ({selectedRecord.answers.length}项)
+                    </label>
+                    <div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                        <thead className="bg-gray-100 dark:bg-gray-700">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">序号</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">检查项</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">检查结果</th>
+                            <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">状态</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+                          {selectedRecord.answers.map((answer, index) => {
+                            // 判断检查项状态
+                            const answerText = Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer;
+                            const isAbnormal = answerText.includes('异常') || 
+                                              answerText.includes('损坏') || 
+                                              answerText.includes('否') ||
+                                              answerText.includes('不合格') ||
+                                              answerText.includes('失效');
+                            
+                            return (
+                              <tr key={index} className={isAbnormal ? 'bg-red-50 dark:bg-red-900/20' : ''}>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+                                    {index + 1}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                  {answer.question}
+                                </td>
+                                <td className="px-4 py-3 text-sm font-medium">
+                                  <span className={isAbnormal ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}>
+                                    {answerText}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {isAbnormal ? (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                                      <i className="fa-solid fa-times-circle mr-1"></i>异常
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                      <i className="fa-solid fa-check-circle mr-1"></i>正常
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
+                    
+                    {/* 检查项统计 */}
+                    <div className="mt-3 flex items-center justify-end gap-4 text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        正常: 
+                        <span className="ml-1 font-medium text-green-600 dark:text-green-400">
+                          {selectedRecord.answers.filter(a => {
+                            const text = Array.isArray(a.answer) ? a.answer.join(', ') : a.answer;
+                            return !text.includes('异常') && !text.includes('损坏') && !text.includes('否') && !text.includes('不合格') && !text.includes('失效');
+                          }).length}
+                        </span>
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        异常: 
+                        <span className="ml-1 font-medium text-red-600 dark:text-red-400">
+                          {selectedRecord.answers.filter(a => {
+                            const text = Array.isArray(a.answer) ? a.answer.join(', ') : a.answer;
+                            return text.includes('异常') || text.includes('损坏') || text.includes('否') || text.includes('不合格') || text.includes('失效');
+                          }).length}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 无检查项数据提示 */}
+                {(!selectedRecord.answers || selectedRecord.answers.length === 0) && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
+                    <i className="fa-solid fa-clipboard-question text-gray-400 text-2xl mb-2"></i>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">暂无检查项数据</p>
                   </div>
                 )}
                 
                 {selectedRecord.notes && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">备注</label>
-                    <p className="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">{selectedRecord.notes}</p>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      <i className="fa-solid fa-comment mr-1"></i>备注
+                    </label>
+                    <p className="text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 p-3 rounded-lg whitespace-pre-wrap">{selectedRecord.notes}</p>
+                  </div>
+                )}
+                
+                {/* 照片记录 */}
+                {selectedRecord.photos && selectedRecord.photos.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      <i className="fa-solid fa-images mr-1"></i>巡检照片 ({selectedRecord.photos.length}张)
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedRecord.photos.map((photo, index) => (
+                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                          <img 
+                            src={photo} 
+                            alt={`巡检照片 ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
