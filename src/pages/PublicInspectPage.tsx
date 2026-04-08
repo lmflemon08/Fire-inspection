@@ -4,7 +4,44 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
 import { AuthContext } from '@/contexts/authContext';
-import { useData, CheckForm, CheckItem, CheckItemAnswer } from '@/contexts/DataContext';
+import { useData, CheckForm, CheckItem, CheckItemAnswer, InspectionCycle } from '@/contexts/DataContext';
+
+// 根据巡检周期计算下次巡检日期
+const calculateNextInspectionDate = (currentDate: Date, cycle: InspectionCycle): string => {
+  const nextDate = new Date(currentDate);
+  
+  switch (cycle) {
+    case 'weekly':      // 每周
+      nextDate.setDate(nextDate.getDate() + 7);
+      break;
+    case 'monthly':     // 每月
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      break;
+    case 'quarterly':   // 每季度（3个月）
+      nextDate.setMonth(nextDate.getMonth() + 3);
+      break;
+    case 'yearly':      // 每年
+      nextDate.setFullYear(nextDate.getFullYear() + 1);
+      break;
+    default:
+      nextDate.setMonth(nextDate.getMonth() + 1); // 默认每月
+  }
+  
+  // 格式化为 YYYY-MM-DD
+  const year = nextDate.getFullYear();
+  const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+  const day = String(nextDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// 获取当前日期字符串 YYYY-MM-DD
+const getCurrentDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function PublicInspectPage() {
   const { code } = useParams<{ code: string }>();
@@ -12,6 +49,7 @@ export default function PublicInspectPage() {
   const { isAuthenticated, userInfo } = useContext(AuthContext);
   const { facilities, updateFacility, addInspectionRecord, getCheckFormByFacilityType, inspectionRecords, loading } = useData();
   
+  // 设施状态类型，包含 inspectionCycle
   const [facility, setFacility] = useState<{
     id: string;
     code: string;
@@ -20,7 +58,9 @@ export default function PublicInspectPage() {
     specification: string;
     location: string;
     status: 'pending' | 'normal' | 'abnormal';
-    lastInspection?: string;
+    inspectionCycle: InspectionCycle;
+    lastInspectionDate?: string;
+    nextInspectionDate?: string;
   } | null>(null);
   
   const [checkForm, setCheckForm] = useState<CheckForm | null>(null);
@@ -177,9 +217,17 @@ export default function PublicInspectPage() {
     if (!facility) return;
 
     const status = determineInspectionResult();
+    const currentDate = getCurrentDateString();
 
-    // 更新设施状态
-    updateFacility(facility.id, { status });
+    // 自动计算下次巡检日期
+    const nextDate = calculateNextInspectionDate(new Date(), facility.inspectionCycle);
+
+    // 更新设施状态和下次巡检日期
+    updateFacility(facility.id, { 
+      status,
+      lastInspectionDate: currentDate,
+      nextInspectionDate: nextDate
+    });
 
     // 构建检查项答案数组
     const checkItemAnswers: CheckItemAnswer[] = [];
@@ -205,7 +253,7 @@ export default function PublicInspectPage() {
       inspectorName: inspectorName || userInfo?.name || '未知',
       notes: inspectionNotes || undefined,
       answers: checkItemAnswers,
-      date: now.toLocaleDateString('zh-CN'),
+      date: currentDate,
       time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     });
 
@@ -213,6 +261,11 @@ export default function PublicInspectPage() {
     setInspectionResult(status);
     setInspectionComplete(true);
     setShowInspectionForm(false);
+    
+    // 显示下次巡检时间提示
+    toast.success(`点检完成！下次巡检时间：${nextDate}`, {
+      duration: 4000
+    });
   };
 
   // 设施类型图标
@@ -265,7 +318,7 @@ export default function PublicInspectPage() {
       </div>
     );
   }
-  
+
   if (!facility) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -361,6 +414,21 @@ export default function PublicInspectPage() {
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">位置：</span>
                       <span className="text-gray-900 dark:text-white">{facility.location}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">周期：</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {facility.inspectionCycle === 'weekly' ? '每周' :
+                         facility.inspectionCycle === 'monthly' ? '每月' :
+                         facility.inspectionCycle === 'quarterly' ? '每季度' :
+                         facility.inspectionCycle === 'yearly' ? '每年' : '每月'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">下次巡检：</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                        {facility.nextInspectionDate || '未设置'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -662,6 +730,21 @@ export default function PublicInspectPage() {
                       <span className="text-gray-900 dark:text-white font-medium">{checkForm.items.length} 项</span>
                     </div>
                   )}
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
+                    <span className="text-gray-500 dark:text-gray-400">巡检周期</span>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {facility.inspectionCycle === 'weekly' ? '每周' :
+                       facility.inspectionCycle === 'monthly' ? '每月' :
+                       facility.inspectionCycle === 'quarterly' ? '每季度' :
+                       facility.inspectionCycle === 'yearly' ? '每年' : '每月'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-500 dark:text-gray-400">下次巡检</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">
+                      {facility.nextInspectionDate || '未设置'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* 点检按钮 */}
@@ -795,3 +878,4 @@ export default function PublicInspectPage() {
     </div>
   );
 }
+
