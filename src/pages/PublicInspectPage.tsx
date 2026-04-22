@@ -878,4 +878,3 @@ export default function PublicInspectPage() {
     </div>
   );
 }
-

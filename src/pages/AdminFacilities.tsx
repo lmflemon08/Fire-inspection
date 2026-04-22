@@ -194,6 +194,58 @@ export default function AdminFacilities() {
     return next.toISOString().split('T')[0];
   };
 
+  // 批量修复所有已完成点检设施的下次巡检时间
+  const handleBatchFixNextInspection = async () => {
+    // 找出所有状态为 normal/abnormal（已完成点检）但下次巡检时间需要修复的设施
+    // 条件：下次巡检日期 <= 今天（已到期或需要更新）
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 找出需要修复的设施（状态为 normal/abnormal，且下次巡检日期 <= 今天）
+    const facilitiesToFix = facilities.filter(f => 
+      (f.status === 'normal' || f.status === 'abnormal') && 
+      f.nextInspectionDate && 
+      f.nextInspectionDate <= today
+    );
+
+    if (facilitiesToFix.length === 0) {
+      toast.info('所有设施的下次巡检时间已是最新，无需修复');
+      return;
+    }
+
+    // 确认操作
+    const confirmed = window.confirm(
+      `发现 ${facilitiesToFix.length} 个设施的下次巡检时间需要修复。\n\n` +
+      `是否立即为这些设施根据其周期重新计算下次巡检时间？\n\n` +
+      `（每月 → 下个月今天，每季度 → 3个月后，每年 → 1年后）`
+    );
+
+    if (!confirmed) return;
+
+    // 逐个更新
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const facility of facilitiesToFix) {
+      try {
+        const newNextDate = calculateNextInspectionDate(facility.inspectionCycle);
+        await updateFacility(facility.id, {
+          lastInspectionDate: facility.lastInspectionDate || today,
+          nextInspectionDate: newNextDate
+        });
+        successCount++;
+      } catch (error) {
+        console.error(`更新设施 ${facility.code} 失败:`, error);
+        failCount++;
+      }
+    }
+
+    if (failCount === 0) {
+      toast.success(`成功修复 ${successCount} 个设施的下次巡检时间`);
+    } else {
+      toast.warning(`修复完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+    }
+  };
+
   // 编辑消防设施
   const handleEditFacility = (facility: FireFacility) => {
     setEditingExtinguisher(facility);
@@ -791,6 +843,17 @@ export default function AdminFacilities() {
              >
                <i className="fa-solid fa-download mr-2"></i>
                下载导入模板
+             </button>
+             
+             {/* 批量修复下次巡检时间按钮 */}
+             <button 
+               onClick={handleBatchFixNextInspection}
+               className="inline-flex items-center px-4 py-2 font-medium rounded-md transition duration-300 border"
+               style={{ backgroundColor: '#F6FFED', color: '#52C41A', borderColor: '#B7EB8F' }}
+               title="为所有已完成点检但下次巡检时间未更新的设施自动计算下次巡检时间"
+             >
+               <i className="fa-solid fa-calendar-check mr-2"></i>
+               批量修复巡检时间
              </button>
              
              {/* 批量操作按钮 - 当有选中项时显示 */}
