@@ -136,6 +136,28 @@ export default function AdminFacilities() {
     return date < today;
   };
 
+  // 计算报废日期
+  const calculateRetirementDate = (purchaseDate?: string, serviceLife?: number): string | null => {
+    if (!purchaseDate || !serviceLife) return null;
+    const purchase = new Date(purchaseDate);
+    purchase.setFullYear(purchase.getFullYear() + serviceLife);
+    return purchase.toISOString().split('T')[0];
+  };
+
+  // 计算到期状态
+  const getExpiryStatus = (retirementDate?: string): { status: 'expired' | 'warning' | 'normal' | 'none'; daysLeft: number } => {
+    if (!retirementDate) return { status: 'none', daysLeft: 0 };
+    const expiry = new Date(retirementDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return { status: 'expired', daysLeft: diffDays };
+    if (diffDays <= 30) return { status: 'warning', daysLeft: diffDays };
+    return { status: 'normal', daysLeft: diffDays };
+  };
+
   // 处理表单变化
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -1010,6 +1032,7 @@ export default function AdminFacilities() {
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>放置点位</th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>周期</th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>下次巡检</th>
+                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>到期时间</th>
                     <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>状态</th>
                     <th scope="col" className="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>二维码</th>
                     <th scope="col" className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>操作</th>
@@ -1060,6 +1083,36 @@ export default function AdminFacilities() {
                            {facility.nextInspectionDate && isOverdue(facility.nextInspectionDate) && (
                              <i className="fa-solid fa-exclamation-triangle ml-1 text-red-500"></i>
                            )}
+                         </td>
+                         {/* 到期时间列 */}
+                         <td className="px-3 py-2 whitespace-nowrap">
+                           {(() => {
+                             const retirementDate = calculateRetirementDate(facility.purchaseDate, facility.serviceLife);
+                             const expiry = getExpiryStatus(retirementDate || undefined);
+                             if (expiry.status === 'none') return <span className="text-gray-400 text-xs">-</span>;
+                             return (
+                               <div className="flex flex-col">
+                                 <span className={
+                                   expiry.status === 'expired' ? 'text-red-600 font-medium' :
+                                   expiry.status === 'warning' ? 'text-orange-500 font-medium' :
+                                   'text-green-600'
+                                 }>
+                                   {retirementDate}
+                                   {expiry.status === 'expired' && <i className="fa-solid fa-exclamation-circle ml-1"></i>}
+                                   {expiry.status === 'warning' && <i className="fa-solid fa-clock ml-1"></i>}
+                                 </span>
+                                 <span className={`text-[10px] ${
+                                   expiry.status === 'expired' ? 'text-red-500' :
+                                   expiry.status === 'warning' ? 'text-orange-500' :
+                                   'text-gray-400'
+                                 }`}>
+                                   {expiry.status === 'expired' ? `已到期 ${Math.abs(expiry.daysLeft)} 天` :
+                                    expiry.status === 'warning' ? `还有 ${expiry.daysLeft} 天` :
+                                    `${expiry.daysLeft} 天`}
+                                 </span>
+                               </div>
+                             );
+                           })()}
                          </td>
                           <td className="px-3 py-2 whitespace-nowrap">
                             <span className={`px-2 py-0.5 inline-flex items-center text-[11px] leading-4 font-semibold rounded-full ${
