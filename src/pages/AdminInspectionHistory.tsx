@@ -438,13 +438,14 @@ export default function AdminInspectionHistory() {
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                           {selectedRecord.answers.map((answer, index) => {
-                            // 判断检查项状态
+                            // 判断检查项状态：优先使用 isAbnormal 字段，其次使用关键字判断
                             const answerText = Array.isArray(answer.answer) ? answer.answer.join(', ') : answer.answer;
-                            const isAbnormal = answerText.includes('异常') || 
+                            const isAbnormalByKeyword = answerText.includes('异常') || 
                                               answerText.includes('损坏') || 
                                               answerText.includes('否') ||
                                               answerText.includes('不合格') ||
                                               answerText.includes('失效');
+                            const isAbnormal = answer.isAbnormal ?? isAbnormalByKeyword;
                             
                             return (
                               <tr key={index} className={isAbnormal ? 'bg-red-50 dark:bg-red-900/20' : ''}>

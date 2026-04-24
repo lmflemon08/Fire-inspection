@@ -1015,10 +1015,11 @@ export default function AdminFacilities() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-100 text-xs">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-3 py-2 w-10">
+                    <th scope="col" className="px-2 py-2 w-8">
                       <input
                         type="checkbox"
                         checked={selectedIds.size === sortedFacilities.length && sortedFacilities.length > 0}
@@ -1026,16 +1027,15 @@ export default function AdminFacilities() {
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
                     </th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>编号</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>类型</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>型号</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>放置点位</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>周期</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>下次巡检</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>到期时间</th>
-                    <th scope="col" className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>状态</th>
-                    <th scope="col" className="px-3 py-2 text-center text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>二维码</th>
-                    <th scope="col" className="px-3 py-2 text-right text-[11px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: '#333333' }}>操作</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-20" style={{ color: '#333333' }}>编号</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-16" style={{ color: '#333333' }}>类型</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-20" style={{ color: '#333333' }}>放置点位</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-14" style={{ color: '#333333' }}>周期</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-24" style={{ color: '#333333' }}>下次巡检</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-24" style={{ color: '#333333' }}>到期时间</th>
+                    <th scope="col" className="px-2 py-2 text-left text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-14" style={{ color: '#333333' }}>状态</th>
+                    <th scope="col" className="px-2 py-2 text-center text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-10" style={{ color: '#333333' }}>二维码</th>
+                    <th scope="col" className="px-2 py-2 text-right text-[10px] font-medium uppercase tracking-wider whitespace-nowrap w-16" style={{ color: '#333333' }}>操作</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -1050,7 +1050,7 @@ export default function AdminFacilities() {
                          exit={{ opacity: 0, height: 0 }}
                          transition={{ duration: 0.3 }}
                        >
-                         <td className="px-3 py-2">
+                         <td className="px-2 py-1.5">
                            <input
                              type="checkbox"
                              checked={selectedIds.has(facility.id)}
@@ -1058,12 +1058,11 @@ export default function AdminFacilities() {
                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                            />
                          </td>
-                         <td className="px-3 py-2 text-xs font-medium whitespace-nowrap" style={{ color: '#333333' }}>{facility.code}</td>
-                         <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>{facility.type}</td>
-                         <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>{facility.model}</td>
-                         <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>{facility.location}</td>
-                         <td className="px-3 py-2 whitespace-nowrap">
-                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                         <td className="px-2 py-1.5 text-[11px] font-medium whitespace-nowrap" style={{ color: '#333333' }}>{facility.code}</td>
+                         <td className="px-2 py-1.5 text-[11px] whitespace-nowrap" style={{ color: '#595959' }}>{facility.type}</td>
+                         <td className="px-2 py-1.5 text-[11px] whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]" style={{ color: '#595959' }} title={facility.location}>{facility.location}</td>
+                         <td className="px-2 py-1.5 whitespace-nowrap">
+                           <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                              facility.inspectionCycle === 'weekly' ? 'bg-purple-100 text-purple-800' :
                              facility.inspectionCycle === 'monthly' ? 'bg-blue-100 text-blue-800' :
                              facility.inspectionCycle === 'quarterly' ? 'bg-indigo-100 text-indigo-800' :
@@ -1074,48 +1073,34 @@ export default function AdminFacilities() {
                               facility.inspectionCycle === 'quarterly' ? '每季' : '每年'}
                            </span>
                          </td>
-                         <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: '#595959' }}>
+                         <td className="px-2 py-1.5 text-[11px] whitespace-nowrap" style={{ color: '#595959' }}>
                            {facility.nextInspectionDate ? (
                              <span className={isOverdue(facility.nextInspectionDate) ? 'text-red-600 font-medium' : ''}>
                                {facility.nextInspectionDate}
+                               {isOverdue(facility.nextInspectionDate) && <i className="fa-solid fa-exclamation-triangle ml-1 text-red-500"></i>}
                              </span>
                            ) : '-'}
-                           {facility.nextInspectionDate && isOverdue(facility.nextInspectionDate) && (
-                             <i className="fa-solid fa-exclamation-triangle ml-1 text-red-500"></i>
-                           )}
                          </td>
-                         {/* 到期时间列 */}
-                         <td className="px-3 py-2 whitespace-nowrap">
+                         {/* 到期时间列 - 简化显示 */}
+                         <td className="px-2 py-1.5 whitespace-nowrap text-[11px]">
                            {(() => {
                              const retirementDate = calculateRetirementDate(facility.purchaseDate, facility.serviceLife);
                              const expiry = getExpiryStatus(retirementDate || undefined);
-                             if (expiry.status === 'none') return <span className="text-gray-400 text-xs">-</span>;
+                             if (expiry.status === 'none') return <span className="text-gray-400">-</span>;
                              return (
-                               <div className="flex flex-col">
-                                 <span className={
-                                   expiry.status === 'expired' ? 'text-red-600 font-medium' :
-                                   expiry.status === 'warning' ? 'text-orange-500 font-medium' :
-                                   'text-green-600'
-                                 }>
-                                   {retirementDate}
-                                   {expiry.status === 'expired' && <i className="fa-solid fa-exclamation-circle ml-1"></i>}
-                                   {expiry.status === 'warning' && <i className="fa-solid fa-clock ml-1"></i>}
-                                 </span>
-                                 <span className={`text-[10px] ${
-                                   expiry.status === 'expired' ? 'text-red-500' :
-                                   expiry.status === 'warning' ? 'text-orange-500' :
-                                   'text-gray-400'
-                                 }`}>
-                                   {expiry.status === 'expired' ? `已到期 ${Math.abs(expiry.daysLeft)} 天` :
-                                    expiry.status === 'warning' ? `还有 ${expiry.daysLeft} 天` :
-                                    `${expiry.daysLeft} 天`}
-                                 </span>
-                               </div>
+                               <span className={
+                                 expiry.status === 'expired' ? 'text-red-600 font-medium' :
+                                 expiry.status === 'warning' ? 'text-orange-500 font-medium' :
+                                 'text-green-600'
+                               }>
+                                 {retirementDate}
+                                 {expiry.status === 'expired' && <i className="fa-solid fa-exclamation-circle ml-1"></i>}
+                               </span>
                              );
                            })()}
                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <span className={`px-2 py-0.5 inline-flex items-center text-[11px] leading-4 font-semibold rounded-full ${
+                          <td className="px-2 py-1.5 whitespace-nowrap">
+                            <span className={`px-1.5 py-0.5 inline-flex items-center text-[10px] leading-4 font-semibold rounded-full ${
                               facility.status === 'normal' 
                                 ? 'text-green-800' 
                                 : facility.status === 'abnormal'
@@ -1130,22 +1115,15 @@ export default function AdminFacilities() {
                                              facility.status === 'stored' ? '#F5F5F5' : '#FFFBE6' 
                             }}
                             >
-                              {facility.status === 'normal' && <i className="fa-solid fa-check-circle mr-1"></i>}
-                              {facility.status === 'abnormal' && <i className="fa-solid fa-exclamation-circle mr-1"></i>}
-                              {facility.status === 'stored' && <i className="fa-solid fa-box mr-1"></i>}
+                              {facility.status === 'normal' && <i className="fa-solid fa-check-circle mr-0.5"></i>}
+                              {facility.status === 'abnormal' && <i className="fa-solid fa-exclamation-circle mr-0.5"></i>}
+                              {facility.status === 'stored' && <i className="fa-solid fa-box mr-0.5"></i>}
                               {facility.status === 'normal' ? '正常' : 
                                facility.status === 'abnormal' ? '异常' : 
                                facility.status === 'stored' ? '暂存' : '待检'}
                             </span>
-                            {/* 显示使用寿命信息 */}
-                            {facility.serviceLife && (
-                              <span className="ml-2 text-xs text-gray-400" title={`使用寿命：${facility.serviceLife}年`}>
-                                <i className="fa-solid fa-hourglass-half mr-1"></i>
-                                {facility.serviceLife}年
-                              </span>
-                            )}
                           </td>
-                         <td className="px-3 py-2 text-center whitespace-nowrap">
+                         <td className="px-2 py-1.5 text-center whitespace-nowrap">
                            <button 
                              onClick={() => handleViewQRCode(facility.id)}
                              className="text-xs"
@@ -1154,10 +1132,10 @@ export default function AdminFacilities() {
                              <i className="fa-solid fa-qrcode"></i>
                            </button>
                          </td>
-                         <td className="px-3 py-2 text-right whitespace-nowrap">
+                         <td className="px-2 py-1.5 text-right whitespace-nowrap">
                            <button 
                              onClick={() => handleEditFacility(facility)}
-                             className="mr-2 text-xs"
+                             className="mr-1 text-xs"
                              style={{ color: '#1677FF' }}
                              title="编辑"
                            >
@@ -1176,9 +1154,10 @@ export default function AdminFacilities() {
                      ))}
                   </AnimatePresence>
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
-            
+             
              {/* 空状态 */}
              {filteredFacilities.length === 0 && (
                <div className="flex flex-col items-center justify-center py-12">

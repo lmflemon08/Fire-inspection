@@ -248,6 +248,28 @@ export default function PublicInspectPage() {
     
     for (const item of checkForm.items) {
       const answer = answers[item.id];
+      
+      // 检查称重类检查项
+      if (item.type === 'weight' && item.compareWithInitial && item.threshold) {
+        const initialWeight = facility?.initialWeight;
+        if (initialWeight && answer && !isNaN(Number(answer))) {
+          const diff = Math.abs(Number(answer) - initialWeight);
+          if (diff > item.threshold) {
+            return 'abnormal';
+          }
+        }
+      }
+      
+      // 检查其他数值类检查项
+      if (item.type === 'number' && item.initialValue && item.threshold) {
+        if (answer && !isNaN(Number(answer))) {
+          const diff = Math.abs(Number(answer) - item.initialValue);
+          if (diff > item.threshold) {
+            return 'abnormal';
+          }
+        }
+      }
+      
       if (typeof answer === 'string') {
         // 检查是否包含异常关键字
         if (answer.includes('异常') || answer.includes('损坏') || 
@@ -259,6 +281,40 @@ export default function PublicInspectPage() {
       }
     }
     return 'normal';
+  };
+
+  // 判断单个检查项是否异常
+  const isItemAbnormal = (item: CheckItem, answer: string | string[] | undefined): boolean => {
+    if (!answer) return false;
+    
+    // 检查称重类检查项
+    if (item.type === 'weight' && item.compareWithInitial && item.threshold) {
+      const initialWeight = facility?.initialWeight;
+      if (initialWeight && !isNaN(Number(answer))) {
+        const diff = Math.abs(Number(answer) - initialWeight);
+        if (diff > item.threshold) return true;
+      }
+    }
+    
+    // 检查其他数值类检查项
+    if (item.type === 'number' && item.initialValue && item.threshold) {
+      if (!isNaN(Number(answer))) {
+        const diff = Math.abs(Number(answer) - item.initialValue);
+        if (diff > item.threshold) return true;
+      }
+    }
+    
+    // 检查文本类答案关键字
+    if (typeof answer === 'string') {
+      if (answer.includes('异常') || answer.includes('损坏') || 
+          answer.includes('否') || answer.includes('卡死') ||
+          answer.includes('偏低') || answer.includes('偏高') ||
+          answer.includes('老化')) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   // 提交点检结果
@@ -283,10 +339,13 @@ export default function PublicInspectPage() {
     const checkItemAnswers: CheckItemAnswer[] = [];
     if (checkForm) {
       checkForm.items.forEach(item => {
+        const itemAnswer = answers[item.id];
+        const abnormal = isItemAbnormal(item, itemAnswer);
         checkItemAnswers.push({
           itemId: item.id,
           question: item.question,
-          answer: answers[item.id]
+          answer: itemAnswer,
+          isAbnormal: abnormal
         });
       });
     }
