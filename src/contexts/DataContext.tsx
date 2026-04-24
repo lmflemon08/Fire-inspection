@@ -469,10 +469,15 @@ const dbToFacility = (db: any): FireFacility => ({
   model: db.model || '',
   specification: db.specification || '',
   location: db.location || '',
-  status: db.status,
-  inspectionCycle: db.inspection_cycle,
+  status: db.status || 'stored',
+  inspectionCycle: db.inspection_cycle || 'monthly',
   lastInspectionDate: db.last_inspection_date,
-  nextInspectionDate: db.next_inspection_date
+  nextInspectionDate: db.next_inspection_date,
+  // 新增字段
+  serviceLife: db.service_life || 5,
+  initialWeight: db.initial_weight,
+  purchaseDate: db.purchase_date,
+  retirementDate: db.retirement_date
 });
 
 const facilityToDb = (facility: FireFacility) => ({
@@ -486,7 +491,12 @@ const facilityToDb = (facility: FireFacility) => ({
   inspection_cycle: facility.inspectionCycle,
   // 日期字段：空字符串转为 null
   last_inspection_date: facility.lastInspectionDate || null,
-  next_inspection_date: facility.nextInspectionDate || null
+  next_inspection_date: facility.nextInspectionDate || null,
+  // 新增字段
+  service_life: facility.serviceLife,
+  initial_weight: facility.initialWeight,
+  purchase_date: facility.purchaseDate || null,
+  retirement_date: facility.retirementDate || null
 });
 
 const dbToUser = (db: any): SystemUser => ({
@@ -705,6 +715,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     if (updates.nextInspectionDate !== undefined) {
       dbUpdates.next_inspection_date = updates.nextInspectionDate || null;
+    }
+    // 新增字段
+    if (updates.serviceLife !== undefined) dbUpdates.service_life = updates.serviceLife;
+    if (updates.initialWeight !== undefined) dbUpdates.initial_weight = updates.initialWeight;
+    if (updates.purchaseDate !== undefined) {
+      dbUpdates.purchase_date = updates.purchaseDate || null;
+    }
+    if (updates.retirementDate !== undefined) {
+      dbUpdates.retirement_date = updates.retirementDate || null;
     }
     dbUpdates.updated_at = new Date().toISOString();
 
