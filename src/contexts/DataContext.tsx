@@ -12,19 +12,26 @@ export interface FireFacility {
   model: string;
   specification: string;
   location: string;
-  status: 'pending' | 'normal' | 'abnormal';
+  status: 'normal' | 'abnormal' | 'stored'; // 正常、异常、暂存
   inspectionCycle: InspectionCycle;
   lastInspectionDate?: string;
   nextInspectionDate?: string;
+  serviceLife?: number;      // 使用寿命（年）
+  initialWeight?: number;    // 初始重量（g）- 用于二氧化碳灭火器等需要称重检测的设施
+  purchaseDate?: string;     // 购置日期
+  retirementDate?: string;    // 报废日期
 }
 
 // 检查项类型定义
 export interface CheckItem {
   id: string;
   question: string;
-  type: 'checkbox' | 'radio' | 'text' | 'number';
+  type: 'checkbox' | 'radio' | 'text' | 'number' | 'weight'; // 新增 weight 类型用于称重检测
   options?: string[];
   required: boolean;
+  threshold?: number;         // 阈值（如 50g）
+  initialValue?: number;     // 初始值（用于称重比较）
+  compareWithInitial?: boolean; // 是否与初始值比较
 }
 
 // 检查表单类型定义
@@ -105,7 +112,7 @@ export interface DataContextType {
     total: number;
     normal: number;
     abnormal: number;
-    pending: number;
+    stored: number;
   };
   
   // 巡检计划相关
@@ -127,10 +134,13 @@ const initialFacilities: FireFacility[] = [
     model: 'MFZ/BC1',
     specification: '2kg',
     location: '大门口',
-    status: 'pending',
+    status: 'normal',
     inspectionCycle: 'monthly',
     lastInspectionDate: '2025-01-15',
-    nextInspectionDate: '2025-02-15'
+    nextInspectionDate: '2025-02-15',
+    serviceLife: 5,
+    initialWeight: 2000,
+    purchaseDate: '2021-01-15'
   },
   {
     id: '2',
@@ -139,10 +149,13 @@ const initialFacilities: FireFacility[] = [
     model: 'MT2',
     specification: '2kg',
     location: '测试',
-    status: 'pending',
+    status: 'normal',
     inspectionCycle: 'monthly',
     lastInspectionDate: '2025-01-10',
-    nextInspectionDate: '2025-02-10'
+    nextInspectionDate: '2025-02-10',
+    serviceLife: 5,
+    initialWeight: 2500,
+    purchaseDate: '2021-01-10'
   },
   {
     id: '3',
@@ -154,7 +167,9 @@ const initialFacilities: FireFacility[] = [
     status: 'normal',
     inspectionCycle: 'quarterly',
     lastInspectionDate: '2025-01-05',
-    nextInspectionDate: '2025-04-05'
+    nextInspectionDate: '2025-04-05',
+    serviceLife: 5,
+    purchaseDate: '2021-01-05'
   },
   {
     id: '4',
@@ -166,7 +181,9 @@ const initialFacilities: FireFacility[] = [
     status: 'abnormal',
     inspectionCycle: 'monthly',
     lastInspectionDate: '2025-01-20',
-    nextInspectionDate: '2025-02-20'
+    nextInspectionDate: '2025-02-20',
+    serviceLife: 5,
+    purchaseDate: '2021-01-20'
   },
   {
     id: '5',
@@ -175,7 +192,7 @@ const initialFacilities: FireFacility[] = [
     model: 'SS100/65-1.6',
     specification: 'DN100',
     location: '测试',
-    status: 'pending',
+    status: 'stored',
     inspectionCycle: 'quarterly',
     lastInspectionDate: '2024-12-01',
     nextInspectionDate: '2025-03-01'
@@ -839,17 +856,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       total: facilities.length,
       normal: facilities.filter(f => f.status === 'normal').length,
       abnormal: facilities.filter(f => f.status === 'abnormal').length,
-      pending: facilities.filter(f => f.status === 'pending').length,
+      stored: facilities.filter(f => f.status === 'stored').length,
     };
   };
 
-  // 获取本月待检任务
+  // 获取本月待检任务（排除暂存状态）
   const getMonthlyInspectionTasks = (): FireFacility[] => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
     return facilities.filter(f => {
+      // 排除暂存状态的设施
+      if (f.status === 'stored') return false;
       if (!f.nextInspectionDate) return false;
       
       const nextDate = new Date(f.nextInspectionDate);
@@ -857,12 +876,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // 获取即将到期的巡检
+  // 获取即将到期的巡检（排除暂存状态）
   const getUpcomingInspections = (days: number = 7): FireFacility[] => {
     const now = new Date();
     const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
     
     return facilities.filter(f => {
+      // 排除暂存状态的设施
+      if (f.status === 'stored') return false;
       if (!f.nextInspectionDate) return false;
       
       const nextDate = new Date(f.nextInspectionDate);
@@ -870,12 +891,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // 获取已逾期的巡检
+  // 获取已逾期的巡检（排除暂存状态）
   const getOverdueInspections = (): FireFacility[] => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     
     return facilities.filter(f => {
+      // 排除暂存状态的设施
+      if (f.status === 'stored') return false;
       if (!f.nextInspectionDate) return false;
       
       const nextDate = new Date(f.nextInspectionDate);
