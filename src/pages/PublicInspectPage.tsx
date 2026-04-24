@@ -43,6 +43,53 @@ const getCurrentDateString = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+// 称重比较结果组件
+interface WeightComparisonResultProps {
+  initialValue: number;
+  currentValue: number;
+  threshold: number;
+}
+
+const WeightComparisonResult: React.FC<WeightComparisonResultProps> = ({ initialValue, currentValue, threshold }) => {
+  const diff = Math.abs(currentValue - initialValue);
+  const isAbnormal = diff > threshold;
+  const percentage = ((diff / initialValue) * 100).toFixed(2);
+
+  return (
+    <div className={`mt-2 p-3 rounded-lg border ${
+      isAbnormal 
+        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+        : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+    }`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-sm font-medium ${
+          isAbnormal ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'
+        }`}>
+          <i className={`fa-solid ${isAbnormal ? 'fa-circle-xmark' : 'fa-circle-check'} mr-1`}></i>
+          {isAbnormal ? '超出阈值（异常）' : '在正常范围内'}
+        </span>
+        <span className={`text-lg font-bold ${
+          isAbnormal ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+        }`}>
+          {isAbnormal ? '异常' : '正常'}
+        </span>
+      </div>
+      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex justify-between">
+          <span>初始重量：{initialValue} g</span>
+          <span>当前重量：{currentValue} g</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span>重量差值：{diff} g ({percentage}%)</span>
+          <span className={isAbnormal ? 'text-red-600 font-medium' : ''}>
+            阈值：±{threshold} g
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function PublicInspectPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -57,10 +104,13 @@ export default function PublicInspectPage() {
     model: string;
     specification: string;
     location: string;
-    status: 'pending' | 'normal' | 'abnormal';
+    status: 'stored' | 'normal' | 'abnormal';
     inspectionCycle: InspectionCycle;
     lastInspectionDate?: string;
     nextInspectionDate?: string;
+    initialWeight?: number;
+    serviceLife?: number;
+    purchaseDate?: string;
   } | null>(null);
   
   const [checkForm, setCheckForm] = useState<CheckForm | null>(null);
@@ -505,15 +555,82 @@ export default function PublicInspectPage() {
                         )}
 
                         {/* 数字输入 */}
-                        {item.type === 'number' && (
+                        {(item.type === 'number' || item.type === 'weight') && (
                           <div className="ml-8">
+                            {/* 显示初始值信息 */}
+                            {item.compareWithInitial && facility && (
+                              <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-blue-700 dark:text-blue-300">
+                                    <i className="fa-solid fa-scale-balanced mr-1"></i>
+                                    初始重量：
+                                  </span>
+                                  <span className="font-semibold text-blue-800 dark:text-blue-200">
+                                    {facility.initialWeight ? `${facility.initialWeight} g` : '未设置'}
+                                  </span>
+                                </div>
+                                {item.threshold && (
+                                  <div className="flex items-center justify-between text-sm mt-1">
+                                    <span className="text-blue-700 dark:text-blue-300">
+                                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                                      告警阈值：
+                                    </span>
+                                    <span className="font-semibold text-blue-800 dark:text-blue-200">
+                                      ±{item.threshold} g
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {!item.compareWithInitial && item.initialValue && (
+                              <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-blue-700 dark:text-blue-300">
+                                    <i className="fa-solid fa-scale-balanced mr-1"></i>
+                                    初始值：
+                                  </span>
+                                  <span className="font-semibold text-blue-800 dark:text-blue-200">
+                                    {item.initialValue} g
+                                  </span>
+                                </div>
+                                {item.threshold && (
+                                  <div className="flex items-center justify-between text-sm mt-1">
+                                    <span className="text-blue-700 dark:text-blue-300">
+                                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>
+                                      告警阈值：
+                                    </span>
+                                    <span className="font-semibold text-blue-800 dark:text-blue-200">
+                                      ±{item.threshold} g
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 数值输入 */}
                             <input
                               type="number"
                               value={answers[item.id] as string}
                               onChange={(e) => handleAnswerChange(item.id, e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="请输入数值..."
+                              placeholder={item.type === 'weight' ? "请输入称重数值（单位：g）..." : "请输入数值..."}
                             />
+
+                            {/* 自动判断结果 */}
+                            {item.compareWithInitial && facility && facility.initialWeight && item.threshold && answers[item.id] && (
+                              <WeightComparisonResult
+                                initialValue={facility.initialWeight}
+                                currentValue={Number(answers[item.id])}
+                                threshold={item.threshold}
+                              />
+                            )}
+                            {!item.compareWithInitial && item.initialValue && item.threshold && answers[item.id] && (
+                              <WeightComparisonResult
+                                initialValue={item.initialValue}
+                                currentValue={Number(answers[item.id])}
+                                threshold={item.threshold}
+                              />
+                            )}
                           </div>
                         )}
                       </div>

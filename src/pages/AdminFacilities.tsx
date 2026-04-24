@@ -43,6 +43,13 @@ export default function AdminFacilities() {
     { value: 'quarterly', label: '每季度' },
     { value: 'yearly', label: '每年' }
   ];
+
+  // 状态选项（正常、异常、暂存）
+  const statusOptions: { value: 'normal' | 'abnormal' | 'stored'; label: string; color: string }[] = [
+    { value: 'normal', label: '正常', color: '#52C41A' },
+    { value: 'abnormal', label: '异常', color: '#FF4D4F' },
+    { value: 'stored', label: '暂存', color: '#8C8C8C' }
+  ];
   
   // 表单状态类型
   type FormData = {
@@ -51,10 +58,14 @@ export default function AdminFacilities() {
     model: string;
     specification: string;
     location: string;
-    status: 'pending' | 'normal' | 'abnormal';
+    status: 'normal' | 'abnormal' | 'stored';
     inspectionCycle: InspectionCycle;
     lastInspectionDate: string;
     nextInspectionDate: string;
+    serviceLife?: number;      // 使用寿命（年）
+    initialWeight?: number;    // 初始重量（g）
+    purchaseDate?: string;     // 购置日期
+    retirementDate?: string;   // 报废日期
   };
   
   // 表单状态
@@ -64,10 +75,14 @@ export default function AdminFacilities() {
     model: '',
     specification: '',
     location: '',
-    status: 'pending',
+    status: 'stored', // 默认暂存
     inspectionCycle: 'monthly',
     lastInspectionDate: '',
-    nextInspectionDate: ''
+    nextInspectionDate: '',
+    serviceLife: 5,
+    initialWeight: undefined,
+    purchaseDate: '',
+    retirementDate: ''
   });
 
   // 过滤消防设施
@@ -124,7 +139,12 @@ export default function AdminFacilities() {
   // 处理表单变化
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // 处理数字类型字段
+    if (name === 'serviceLife' || name === 'initialWeight') {
+      setFormData(prev => ({ ...prev, [name]: value ? Number(value) : undefined }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   // 生成新编号（模拟）
@@ -159,10 +179,14 @@ export default function AdminFacilities() {
         model: '',
         specification: '',
         location: '',
-        status: 'pending' as const,
+        status: 'stored' as const,
         inspectionCycle: 'monthly' as InspectionCycle,
         lastInspectionDate: '',
-        nextInspectionDate: ''
+        nextInspectionDate: '',
+        serviceLife: 5,
+        initialWeight: undefined,
+        purchaseDate: '',
+        retirementDate: ''
       });
       toast.success('消防设施添加成功');
     } catch (error) {
@@ -258,7 +282,11 @@ export default function AdminFacilities() {
       status: facility.status,
       inspectionCycle: facility.inspectionCycle,
       lastInspectionDate: facility.lastInspectionDate || '',
-      nextInspectionDate: facility.nextInspectionDate || ''
+      nextInspectionDate: facility.nextInspectionDate || '',
+      serviceLife: facility.serviceLife,
+      initialWeight: facility.initialWeight,
+      purchaseDate: facility.purchaseDate || '',
+      retirementDate: facility.retirementDate || ''
     });
     setIsEditModalOpen(true);
   };
@@ -283,10 +311,14 @@ export default function AdminFacilities() {
         model: '',
         specification: '',
         location: '',
-        status: 'pending' as const,
+        status: 'stored' as const,
         inspectionCycle: 'monthly' as InspectionCycle,
         lastInspectionDate: '',
-        nextInspectionDate: ''
+        nextInspectionDate: '',
+        serviceLife: 5,
+        initialWeight: undefined,
+        purchaseDate: '',
+        retirementDate: ''
       });
       
       toast.success('消防设施信息更新成功');
@@ -360,11 +392,12 @@ export default function AdminFacilities() {
         };
 
         // 状态映射
-        const statusMap: Record<string, 'pending' | 'normal' | 'abnormal'> = {
-          '待检': 'pending',
+        const statusMap: Record<string, 'stored' | 'normal' | 'abnormal'> = {
+          '待检': 'stored',
           '正常': 'normal',
           '异常': 'abnormal',
-          'pending': 'pending',
+          '暂存': 'stored',
+          'stored': 'stored',
           'normal': 'normal',
           'abnormal': 'abnormal'
         };
@@ -376,8 +409,8 @@ export default function AdminFacilities() {
           const inspectionCycle = cycleMap[cycleText] || 'monthly';
           
           // 解析状态
-          const statusText = String(row['状态'] || row['status'] || '待检');
-          const status = statusMap[statusText] || 'pending';
+          const statusText = String(row['状态'] || row['status'] || '正常');
+          const status = statusMap[statusText] || 'normal';
           
           // 解析下次巡检日期（处理Excel日期序列号）
           const nextInspectionDateRaw = row['下次巡检日期'] || row['nextInspectionDate'];
@@ -449,7 +482,7 @@ export default function AdminFacilities() {
         model: item.model || '',
         specification: item.specification || '',
         location: item.location || '',
-        status: item.status || 'pending',
+        status: item.status || 'normal',
         inspectionCycle: cycle,
         nextInspectionDate: nextDate
       });
@@ -1034,15 +1067,30 @@ export default function AdminFacilities() {
                                 ? 'text-green-800' 
                                 : facility.status === 'abnormal'
                                 ? 'text-red-800'
+                                : facility.status === 'stored'
+                                ? 'text-gray-800'
                                 : 'text-yellow-800'
                             }`}
-                            style={{ backgroundColor: facility.status === 'normal' ? '#F6FFED' : facility.status === 'abnormal' ? '#FFF1F0' : '#FFFBE6' }}
+                            style={{ 
+                              backgroundColor: facility.status === 'normal' ? '#F6FFED' : 
+                                             facility.status === 'abnormal' ? '#FFF1F0' : 
+                                             facility.status === 'stored' ? '#F5F5F5' : '#FFFBE6' 
+                            }}
                             >
                               {facility.status === 'normal' && <i className="fa-solid fa-check-circle mr-1"></i>}
                               {facility.status === 'abnormal' && <i className="fa-solid fa-exclamation-circle mr-1"></i>}
-                              {facility.status === 'pending' && <i className="fa-solid fa-clock mr-1"></i>}
-                              {facility.status === 'normal' ? '正常' : facility.status === 'abnormal' ? '异常' : '待检'}
+                              {facility.status === 'stored' && <i className="fa-solid fa-box mr-1"></i>}
+                              {facility.status === 'normal' ? '正常' : 
+                               facility.status === 'abnormal' ? '异常' : 
+                               facility.status === 'stored' ? '暂存' : '待检'}
                             </span>
+                            {/* 显示使用寿命信息 */}
+                            {facility.serviceLife && (
+                              <span className="ml-2 text-xs text-gray-400" title={`使用寿命：${facility.serviceLife}年`}>
+                                <i className="fa-solid fa-hourglass-half mr-1"></i>
+                                {facility.serviceLife}年
+                              </span>
+                            )}
                           </td>
                          <td className="px-3 py-2 text-center whitespace-nowrap">
                            <button 
@@ -1233,6 +1281,76 @@ export default function AdminFacilities() {
                           <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* 状态选择 */}
+                    <div>
+                      <label htmlFor="status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        状态
+                      </label>
+                      <select
+                        id="status"
+                        name="status"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.status}
+                        onChange={handleFormChange}
+                      >
+                        {statusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">注：状态为"暂存"的设施不列入巡检计划</p>
+                    </div>
+
+                    {/* 使用寿命 */}
+                    <div>
+                      <label htmlFor="serviceLife" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        使用寿命（年）
+                      </label>
+                      <input
+                        id="serviceLife"
+                        name="serviceLife"
+                        type="number"
+                        min="1"
+                        max="20"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="如：5"
+                        value={formData.serviceLife || ''}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+
+                    {/* 初始重量（二氧化碳灭火器等称重检测用） */}
+                    <div>
+                      <label htmlFor="initialWeight" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        初始重量（g）
+                      </label>
+                      <input
+                        id="initialWeight"
+                        name="initialWeight"
+                        type="number"
+                        min="0"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="如：2500（用于称重检测）"
+                        value={formData.initialWeight || ''}
+                        onChange={handleFormChange}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">二氧化碳灭火器等需要称重检测的设施请填写</p>
+                    </div>
+
+                    {/* 购置日期 */}
+                    <div>
+                      <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        购置日期
+                      </label>
+                      <input
+                        id="purchaseDate"
+                        name="purchaseDate"
+                        type="date"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.purchaseDate || ''}
+                        onChange={handleFormChange}
+                      />
                     </div>
                     
                     <div className="flex justify-end space-x-3 pt-4">
@@ -1515,6 +1633,73 @@ export default function AdminFacilities() {
                         type="date"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         value={formData.nextInspectionDate || ''}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+
+                    {/* 状态选择 */}
+                    <div>
+                      <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        状态
+                      </label>
+                      <select
+                        id="edit-status"
+                        name="status"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.status}
+                        onChange={handleFormChange}
+                      >
+                        {statusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">注：状态为"暂存"的设施不列入巡检计划</p>
+                    </div>
+
+                    {/* 使用寿命 */}
+                    <div>
+                      <label htmlFor="edit-serviceLife" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        使用寿命（年）
+                      </label>
+                      <input
+                        id="edit-serviceLife"
+                        name="serviceLife"
+                        type="number"
+                        min="1"
+                        max="20"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.serviceLife || ''}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+
+                    {/* 初始重量 */}
+                    <div>
+                      <label htmlFor="edit-initialWeight" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        初始重量（g）
+                      </label>
+                      <input
+                        id="edit-initialWeight"
+                        name="initialWeight"
+                        type="number"
+                        min="0"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.initialWeight || ''}
+                        onChange={handleFormChange}
+                      />
+                    </div>
+
+                    {/* 购置日期 */}
+                    <div>
+                      <label htmlFor="edit-purchaseDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        购置日期
+                      </label>
+                      <input
+                        id="edit-purchaseDate"
+                        name="purchaseDate"
+                        type="date"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.purchaseDate || ''}
                         onChange={handleFormChange}
                       />
                     </div>

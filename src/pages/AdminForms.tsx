@@ -635,6 +635,7 @@ export default function AdminForms() {
                                     <option value="radio">单选框</option>
                                     <option value="text">文本</option>
                                     <option value="number">数字</option>
+                                    <option value="weight">称重检测</option>
                                   </select>
                                 </div>
                                 
@@ -644,7 +645,7 @@ export default function AdminForms() {
                                   </label>
                                   <select
                                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    value={item.required}
+                                    value={item.required ? 'true' : 'false'}
                                     onChange={(e) => updateCheckItem(index, 'required', e.target.value === 'true')}
                                   >
                                     <option value="true">是</option>
@@ -652,6 +653,63 @@ export default function AdminForms() {
                                   </select>
                                 </div>
                               </div>
+
+                              {/* 称重检测配置（当类型为 number 或 weight 时显示） */}
+                              {(item.type === 'number' || item.type === 'weight') && (
+                                <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                                  <div className="space-y-3">
+                                    {/* 是否与初始值比较 */}
+                                    <div className="flex items-center">
+                                      <input
+                                        type="checkbox"
+                                        id={`compare-${item.id}`}
+                                        checked={item.compareWithInitial || false}
+                                        onChange={(e) => updateCheckItem(index, 'compareWithInitial', e.target.checked)}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <label htmlFor={`compare-${item.id}`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                        与设施初始值比较（自动从设施信息中获取初始重量）
+                                      </label>
+                                    </div>
+
+                                    {/* 手动设置初始值（如果不使用设施初始值） */}
+                                    {!item.compareWithInitial && (
+                                      <div>
+                                        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                          手动设置初始值
+                                        </label>
+                                        <input
+                                          type="number"
+                                          placeholder="如：2500"
+                                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                          value={item.initialValue || ''}
+                                          onChange={(e) => updateCheckItem(index, 'initialValue', e.target.value ? Number(e.target.value) : undefined)}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* 阈值设置 */}
+                                    <div>
+                                      <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                        告警阈值（与初始值相差超过此值则判定异常）
+                                      </label>
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="number"
+                                          placeholder="如：50"
+                                          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                          value={item.threshold || ''}
+                                          onChange={(e) => updateCheckItem(index, 'threshold', e.target.value ? Number(e.target.value) : undefined)}
+                                        />
+                                        <span className="text-gray-500 dark:text-gray-400">g（克）</span>
+                                      </div>
+                                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        差值 = |输入值 - 初始值|，差值超过阈值则标记为异常
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               
                               {(item.type === 'checkbox' || item.type === 'radio') && (
                                 <div>
@@ -668,7 +726,7 @@ export default function AdminForms() {
                                           value={option}
                                           onChange={(e) => updateOption(index, optionIndex, e.target.value)}
                                         />
-                                        {item.options.length > 2 && (
+                                        {(item.options?.length ?? 0) > 2 && (
                                           <button 
                                             type="button"
                                             onClick={() => removeOption(index, optionIndex)}

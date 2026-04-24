@@ -25,7 +25,7 @@ export default function AdminInspectionPlans() {
       case 'overdue':
         return overdueInspections;
       case 'all':
-        return facilities;
+        return facilities.filter(f => f.status !== 'stored');
       default:
         return [];
     }
@@ -244,6 +244,7 @@ export default function AdminInspectionPlans() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">编号</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">类型</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">放置位置</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">设施状态</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">巡检周期</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">上次巡检</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">下次巡检</th>
@@ -271,6 +272,19 @@ export default function AdminInspectionPlans() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                             {facility.location}
+                          </td>
+                          {/* 设施状态 */}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              facility.status === 'normal' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                              facility.status === 'abnormal' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
+                              facility.status === 'stored' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' :
+                              'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                            }`}>
+                              {facility.status === 'normal' ? '正常' :
+                               facility.status === 'abnormal' ? '异常' :
+                               facility.status === 'stored' ? '暂存' : '正常'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -329,10 +343,11 @@ export default function AdminInspectionPlans() {
               <div className="text-sm text-blue-700 dark:text-blue-300">
                 <p className="font-medium mb-2">巡检计划说明：</p>
                 <ul className="list-disc list-inside space-y-1 text-blue-600 dark:text-blue-400">
-                  <li><strong>本月待检</strong>：下次巡检日期在本月内的所有设施</li>
+                  <li><strong>本月待检</strong>：下次巡检日期在本月内的所有设施（不含"暂存"状态）</li>
                   <li><strong>即将到期</strong>：下次巡检日期在7天内的设施</li>
                   <li><strong>已逾期</strong>：下次巡检日期已过的设施（需要优先处理）</li>
-                  <li>您可以在「消防设施管理」中修改每个设施的巡检周期和巡检日期</li>
+                  <li><strong>设施状态</strong>：正常/异常/暂存，"暂存"状态的设施不列入巡检计划</li>
+                  <li>您可以在「消防设施管理」中修改每个设施的巡检周期、巡检日期和状态</li>
                 </ul>
               </div>
             </div>
