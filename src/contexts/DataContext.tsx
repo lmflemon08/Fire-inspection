@@ -49,6 +49,7 @@ export interface CheckItemAnswer {
   itemId: string;
   question: string;
   answer: string | string[];
+  isAbnormal?: boolean; // 该检查项是否异常
 }
 
 // 巡检记录类型定义
