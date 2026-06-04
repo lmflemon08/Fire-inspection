@@ -6,8 +6,10 @@ const neonConnectionString = 'postgresql://neondb_owner:npg_SY1PHWJKaRo8@ep-bitt
 
 console.log('Neon 数据库初始化');
 
-// 创建 Neon SQL 标签模板客户端（用于静态SQL）
-export const sql = neon(neonConnectionString);
+// 创建 Neon SQL 标签模板客户端（用于静态SQL），禁用浏览器警告
+export const sql = neon(neonConnectionString, {
+  disableWarningInBrowsers: true
+});
 
 // 创建连接池（用于动态SQL查询）
 const pool = new Pool({ connectionString: neonConnectionString });
