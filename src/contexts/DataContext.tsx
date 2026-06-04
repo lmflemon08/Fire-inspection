@@ -130,6 +130,19 @@ export interface DataContextType {
 export const DataContext = createContext<DataContextType | undefined>(undefined);
 
 
+// Neon 返回的日期字段是 Date 对象，需要转换为字符串
+const dateToStr = (v: any): string | undefined => {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString().split('T')[0];
+  return String(v);
+};
+
+const datetimeToStr = (v: any): string | undefined => {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+};
+
 // 转换函数：数据库格式 -> 前端格式
 const dbToFacility = (db: any): FireFacility => ({
   id: db.id,
@@ -140,13 +153,13 @@ const dbToFacility = (db: any): FireFacility => ({
   location: db.location || '',
   status: db.status || 'stored',
   inspectionCycle: db.inspection_cycle || 'monthly',
-  lastInspectionDate: db.last_inspection_date,
-  nextInspectionDate: db.next_inspection_date,
+  lastInspectionDate: dateToStr(db.last_inspection_date),
+  nextInspectionDate: dateToStr(db.next_inspection_date),
   // 新增字段
   serviceLife: db.service_life || 5,
   initialWeight: db.initial_weight,
-  purchaseDate: db.purchase_date,
-  retirementDate: db.retirement_date
+  purchaseDate: dateToStr(db.purchase_date),
+  retirementDate: dateToStr(db.retirement_date)
 });
 
 const facilityToDb = (facility: FireFacility) => ({
@@ -192,9 +205,9 @@ const dbToCheckForm = (db: any): CheckForm => ({
   id: db.id,
   name: db.name,
   facilityType: db.facility_type,
-  items: db.items,
-  createdAt: db.created_at,
-  updatedAt: db.updated_at
+  items: typeof db.items === 'string' ? JSON.parse(db.items) : db.items,
+  createdAt: datetimeToStr(db.created_at) || '',
+  updatedAt: datetimeToStr(db.updated_at) || ''
 });
 
 const checkFormToDb = (form: CheckForm) => ({
@@ -216,8 +229,8 @@ const dbToInspectionRecord = (db: any): InspectionRecord => ({
   inspectorId: db.inspector_id,
   inspectorName: db.inspector_name,
   notes: db.notes,
-  answers: db.answers,
-  date: db.date,
+  answers: typeof db.answers === 'string' ? JSON.parse(db.answers) : db.answers,
+  date: dateToStr(db.date) || '',
   time: db.time
 });
 
