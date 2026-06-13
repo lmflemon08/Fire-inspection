@@ -347,8 +347,8 @@ export default function PublicInspectPage() {
     // 自动计算下次巡检日期
     const nextDate = calculateNextInspectionDate(new Date(), facility.inspectionCycle);
 
-    // 更新设施状态和下次巡检日期
-    updateFacility(facility.id, { 
+    // 更新设施状态和下次巡检日期（await 确保完成）
+    await updateFacility(facility.id, {
       status,
       lastInspectionDate: currentDate,
       nextInspectionDate: nextDate
