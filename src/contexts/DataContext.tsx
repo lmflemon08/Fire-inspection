@@ -485,6 +485,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       VALUES (${dbRecord.id}, ${dbRecord.facility_id}, ${dbRecord.facility_code}, ${dbRecord.facility_name || null}, ${dbRecord.type || null}, ${dbRecord.status}, ${dbRecord.inspector_id || null}, ${dbRecord.inspector_name || null}, ${dbRecord.notes || null}, ${JSON.stringify(dbRecord.answers)}::jsonb, ${dbRecord.date || null}, ${dbRecord.time || null})
     `;
     
+    // 自动更新设施状态：上次巡检时间 + 下次巡检时间
+    const facilityRes: any[] = await sql`SELECT id, inspection_cycle, status FROM facilities WHERE id = ${dbRecord.facility_id}`;
+    if (facilityRes && facilityRes.length > 0) {
+      const facility = facilityRes[0];
+      const today = new Date(dbRecord.date || Date.now());
+      let nextDate = new Date(today);
+      switch (facility.inspection_cycle) {
+        case 'weekly': nextDate.setDate(today.getDate() + 7); break;
+        case 'quarterly': nextDate.setMonth(today.getMonth() + 3); break;
+        case 'yearly': nextDate.setFullYear(today.getFullYear() + 1); break;
+        default: nextDate.setMonth(today.getMonth() + 1); break;
+      }
+      const nextDateStr = nextDate.toISOString().split('T')[0];
+      const todayStr = today.toISOString().split('T')[0];
+      const newFacilityStatus = dbRecord.status === 'abnormal' ? 'abnormal' : 'normal';
+      await sql`UPDATE facilities SET last_inspection_date = ${todayStr}, next_inspection_date = ${nextDateStr}, status = ${newFacilityStatus}, updated_at = NOW() WHERE id = ${dbRecord.facility_id}`;
+    }
+    
     const newRecord: InspectionRecord = {
       ...record,
       id: dbRecord.id
