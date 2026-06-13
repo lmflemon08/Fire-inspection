@@ -306,10 +306,29 @@ export default function PublicInspectPage() {
     
     // 检查文本类答案关键字
     if (typeof answer === 'string') {
-      if (answer.includes('异常') || answer.includes('损坏') || 
-          answer.includes('否') || answer.includes('卡死') ||
-          answer.includes('偏低') || answer.includes('偏高') ||
-          answer.includes('老化')) {
+      // 提取答案主体（去除括号内的说明，例如"正常（无损坏）" → "正常"）
+      const mainAnswer = answer.split(/[（(]/)[0].trim();
+      
+      // 否定前缀词：包含这些词表示"无问题"
+      const negationPrefixes = ['无', '不', '未', '正常', '完好', '良好', '有效'];
+      
+      // 异常关键词
+      const abnormalKeywords = ['异常', '损坏', '否', '卡死', '偏低', '偏高', '老化', '泄漏', '堵塞', '缺失'];
+      
+      // 检查异常关键词（但排除否定形式）
+      for (const keyword of abnormalKeywords) {
+        if (mainAnswer.includes(keyword)) {
+          // 如果前面紧跟否定词，则不算异常
+          const index = mainAnswer.indexOf(keyword);
+          const prevChar = index > 0 ? mainAnswer[index - 1] : '';
+          if (!negationPrefixes.includes(prevChar) && !mainAnswer.startsWith(keyword)) {
+            return true;
+          }
+        }
+      }
+      
+      // 特殊处理：单独的"否"字答案
+      if (mainAnswer === '否' || mainAnswer === '不正常' || mainAnswer === '有损坏') {
         return true;
       }
     }
