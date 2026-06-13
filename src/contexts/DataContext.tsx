@@ -131,9 +131,17 @@ export const DataContext = createContext<DataContextType | undefined>(undefined)
 
 
 // Neon 返回的日期字段是 Date 对象，需要转换为字符串
+// 注意：不能使用 toISOString()，因为 Neon 会自动给 date 字段加本地时区(GMT+0800)，
+// 导致 2026-06-13 (date) 变成 2026-06-12T16:00:00.000Z，从而少一天
 const dateToStr = (v: any): string | undefined => {
   if (!v) return undefined;
-  if (v instanceof Date) return v.toISOString().split('T')[0];
+  if (v instanceof Date) {
+    // 用本地时区提取日期部分（getFullYear/getMonth/getDate）
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, '0');
+    const d = String(v.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   return String(v);
 };
 
@@ -486,19 +494,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
     `;
     
     // 自动更新设施状态：上次巡检时间 + 下次巡检时间
+    // 用本地时区提取日期，避免 toISOString() 跨时区导致日期偏差
     const facilityRes: any[] = await sql`SELECT id, inspection_cycle, status FROM facilities WHERE id = ${dbRecord.facility_id}`;
     if (facilityRes && facilityRes.length > 0) {
       const facility = facilityRes[0];
-      const today = new Date(dbRecord.date || Date.now());
-      let nextDate = new Date(today);
+      // 解析 last_inspection_date (YYYY-MM-DD) 为本地时区 Date 对象
+      const today = dbRecord.date 
+        ? new Date(dbRecord.date + 'T00:00:00')
+        : new Date();
+      const formatLocalDate = (d: Date): string => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${dd}`;
+      };
+      const nextDate = new Date(today);
       switch (facility.inspection_cycle) {
         case 'weekly': nextDate.setDate(today.getDate() + 7); break;
         case 'quarterly': nextDate.setMonth(today.getMonth() + 3); break;
         case 'yearly': nextDate.setFullYear(today.getFullYear() + 1); break;
         default: nextDate.setMonth(today.getMonth() + 1); break;
       }
-      const nextDateStr = nextDate.toISOString().split('T')[0];
-      const todayStr = today.toISOString().split('T')[0];
+      const nextDateStr = formatLocalDate(nextDate);
+      const todayStr = formatLocalDate(today);
       const newFacilityStatus = dbRecord.status === 'abnormal' ? 'abnormal' : 'normal';
       await sql`UPDATE facilities SET last_inspection_date = ${todayStr}, next_inspection_date = ${nextDateStr}, status = ${newFacilityStatus}, updated_at = NOW() WHERE id = ${dbRecord.facility_id}`;
     }
@@ -537,33 +555,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   // 获取即将到期的巡检（排除暂存状态）
+  // 用纯字符串(YYYY-MM-DD)比较避免时区错位
   const getUpcomingInspections = (days: number = 7): FireFacility[] => {
-    const now = new Date();
-    const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    const ty = today.getFullYear();
+    const tm = String(today.getMonth() + 1).padStart(2, '0');
+    const td = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${ty}-${tm}-${td}`;
+    
+    // 计算未来 days 天的日期
+    const future = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+    const fy = future.getFullYear();
+    const fm = String(future.getMonth() + 1).padStart(2, '0');
+    const fd = String(future.getDate()).padStart(2, '0');
+    const futureStr = `${fy}-${fm}-${fd}`;
     
     return facilities.filter(f => {
       // 排除暂存状态的设施
       if (f.status === 'stored') return false;
       if (!f.nextInspectionDate) return false;
       
-      const nextDate = new Date(f.nextInspectionDate);
-      return nextDate >= now && nextDate <= futureDate;
+      const next = f.nextInspectionDate;
+      return next >= todayStr && next <= futureStr;
     });
   };
 
   // 获取已逾期的巡检（排除暂存状态）
+  // 用纯字符串(YYYY-MM-DD)比较避免时区错位
   const getOverdueInspections = (): FireFacility[] => {
     const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
     
     return facilities.filter(f => {
       // 排除暂存状态的设施
       if (f.status === 'stored') return false;
       if (!f.nextInspectionDate) return false;
-      
-      const nextDate = new Date(f.nextInspectionDate);
-      nextDate.setHours(0, 0, 0, 0);
-      return nextDate < now;
+      // 字符串字典序 == 日期时间序，YYYY-MM-DD 格式可直接比较
+      return f.nextInspectionDate < todayStr;
     });
   };
 
