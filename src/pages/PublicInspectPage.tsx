@@ -242,42 +242,14 @@ export default function PublicInspectPage() {
     return true;
   };
 
-  // 判断巡检结果
+  // 判断巡检结果 - 统一调用 isItemAbnormal，与单检查项异常判断保持一致
   const determineInspectionResult = (): 'normal' | 'abnormal' => {
     if (!checkForm) return 'normal';
     
     for (const item of checkForm.items) {
       const answer = answers[item.id];
-      
-      // 检查称重类检查项
-      if (item.type === 'weight' && item.compareWithInitial && item.threshold) {
-        const initialWeight = facility?.initialWeight;
-        if (initialWeight && answer && !isNaN(Number(answer))) {
-          const diff = Math.abs(Number(answer) - initialWeight);
-          if (diff > item.threshold) {
-            return 'abnormal';
-          }
-        }
-      }
-      
-      // 检查其他数值类检查项
-      if (item.type === 'number' && item.initialValue && item.threshold) {
-        if (answer && !isNaN(Number(answer))) {
-          const diff = Math.abs(Number(answer) - item.initialValue);
-          if (diff > item.threshold) {
-            return 'abnormal';
-          }
-        }
-      }
-      
-      if (typeof answer === 'string') {
-        // 检查是否包含异常关键字
-        if (answer.includes('异常') || answer.includes('损坏') || 
-            answer.includes('否') || answer.includes('卡死') ||
-            answer.includes('偏低') || answer.includes('偏高') ||
-            answer.includes('老化')) {
-          return 'abnormal';
-        }
+      if (isItemAbnormal(item, answer)) {
+        return 'abnormal';
       }
     }
     return 'normal';
