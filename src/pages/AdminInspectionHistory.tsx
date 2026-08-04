@@ -480,24 +480,18 @@ export default function AdminInspectionHistory() {
                       </table>
                     </div>
                     
-                    {/* 检查项统计 */}
+                    {/* 检查项统计 - 使用 isAbnormal 字段，与单检查项状态显示保持一致 */}
                     <div className="mt-3 flex items-center justify-end gap-4 text-sm">
                       <span className="text-gray-500 dark:text-gray-400">
                         正常: 
                         <span className="ml-1 font-medium text-green-600 dark:text-green-400">
-                          {selectedRecord.answers.filter(a => {
-                            const text = Array.isArray(a.answer) ? a.answer.join(', ') : a.answer;
-                            return !text.includes('异常') && !text.includes('损坏') && !text.includes('否') && !text.includes('不合格') && !text.includes('失效');
-                          }).length}
+                          {selectedRecord.answers.filter(a => !a.isAbnormal).length}
                         </span>
                       </span>
                       <span className="text-gray-500 dark:text-gray-400">
                         异常: 
                         <span className="ml-1 font-medium text-red-600 dark:text-red-400">
-                          {selectedRecord.answers.filter(a => {
-                            const text = Array.isArray(a.answer) ? a.answer.join(', ') : a.answer;
-                            return text.includes('异常') || text.includes('损坏') || text.includes('否') || text.includes('不合格') || text.includes('失效');
-                          }).length}
+                          {selectedRecord.answers.filter(a => a.isAbnormal).length}
                         </span>
                       </span>
                     </div>
