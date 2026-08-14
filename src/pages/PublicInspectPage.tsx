@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { QRCodeSVG } from 'qrcode.react';
+import { sql } from '../lib/db';
 import { AuthContext } from '@/contexts/authContext';
 import { useData, CheckForm, CheckItem, CheckItemAnswer, InspectionCycle } from '@/contexts/DataContext';
 
@@ -121,33 +122,93 @@ export default function PublicInspectPage() {
   const [inspectionComplete, setInspectionComplete] = useState(false); // 点检完成状态
   const [inspectionResult, setInspectionResult] = useState<'normal' | 'abnormal'>('normal'); // 点检结果
 
-  // 根据编号查找设施
+  // 根据编号查找设施（优先从 DataContext 缓存，否则直接查询数据库）
+  const [directLoading, setDirectLoading] = useState(false);
+  
   useEffect(() => {
-    if (code) {
-      const found = facilities.find(f => 
-        f.code.toLowerCase() === code.toLowerCase()
-      );
-      if (found) {
-        setFacility(found);
-        // 加载对应的检查表单
-        const form = getCheckFormByFacilityType(found.type);
-        setCheckForm(form || null);
-        
-        // 初始化答案
-        if (form) {
-          const initialAnswers: Record<string, string | string[]> = {};
-          form.items.forEach(item => {
-            if (item.type === 'checkbox') {
-              initialAnswers[item.id] = [];
-            } else {
-              initialAnswers[item.id] = '';
-            }
-          });
-          setAnswers(initialAnswers);
-        }
+    if (!code) return;
+    
+    // 先尝试从 DataContext 缓存查找
+    const found = facilities.find(f => 
+      f.code.toLowerCase() === code.toLowerCase()
+    );
+    
+    if (found) {
+      setFacility(found);
+      const form = getCheckFormByFacilityType(found.type);
+      setCheckForm(form || null);
+      
+      if (form) {
+        const initialAnswers: Record<string, string | string[]> = {};
+        form.items.forEach(item => {
+          if (item.type === 'checkbox') {
+            initialAnswers[item.id] = [];
+          } else {
+            initialAnswers[item.id] = '';
+          }
+        });
+        setAnswers(initialAnswers);
       }
+    } else if (!loading) {
+      // DataContext 已加载完成但未找到，直接查询数据库
+      setDirectLoading(true);
+      sql`SELECT * FROM facilities WHERE code = ${code} LIMIT 1`
+        .then((rows: any[]) => {
+          if (rows && rows.length > 0) {
+            const dbToFacility = (db: any) => ({
+              id: db.id,
+              code: db.code,
+              type: db.type || '',
+              location: db.location || '',
+              status: db.status || 'normal',
+              inspectionCycle: db.inspection_cycle || 'monthly',
+              lastInspectionDate: db.last_inspection_date 
+                ? (db.last_inspection_date instanceof Date 
+                    ? `${db.last_inspection_date.getFullYear()}-${String(db.last_inspection_date.getMonth()+1).padStart(2,'0')}-${String(db.last_inspection_date.getDate()).padStart(2,'0')}`
+                    : String(db.last_inspection_date).split('T')[0])
+                : undefined,
+              nextInspectionDate: db.next_inspection_date
+                ? (db.next_inspection_date instanceof Date
+                    ? `${db.next_inspection_date.getFullYear()}-${String(db.next_inspection_date.getMonth()+1).padStart(2,'0')}-${String(db.next_inspection_date.getDate()).padStart(2,'0')}`
+                    : String(db.next_inspection_date).split('T')[0])
+                : undefined,
+              serviceLife: db.service_life ? Number(db.service_life) : undefined,
+              initialWeight: db.initial_weight ? Number(db.initial_weight) : undefined,
+              purchaseDate: db.purchase_date
+                ? (db.purchase_date instanceof Date
+                    ? `${db.purchase_date.getFullYear()}-${String(db.purchase_date.getMonth()+1).padStart(2,'0')}-${String(db.purchase_date.getDate()).padStart(2,'0')}`
+                    : String(db.purchase_date).split('T')[0])
+                : undefined,
+              retirementDate: db.retirement_date
+                ? (db.retirement_date instanceof Date
+                    ? `${db.retirement_date.getFullYear()}-${String(db.retirement_date.getMonth()+1).padStart(2,'0')}-${String(db.retirement_date.getDate()).padStart(2,'0')}`
+                    : String(db.retirement_date).split('T')[0])
+                : undefined,
+              createdAt: db.created_at,
+              updatedAt: db.updated_at,
+            });
+            const facility = dbToFacility(rows[0]) as any;
+            setFacility(facility);
+            const form = getCheckFormByFacilityType(facility.type);
+            setCheckForm(form || null);
+            
+            if (form) {
+              const initialAnswers: Record<string, string | string[]> = {};
+              form.items.forEach(item => {
+                if (item.type === 'checkbox') {
+                  initialAnswers[item.id] = [];
+                } else {
+                  initialAnswers[item.id] = '';
+                }
+              });
+              setAnswers(initialAnswers);
+            }
+          }
+        })
+        .catch((err: any) => console.error('直接查询设施失败:', err))
+        .finally(() => setDirectLoading(false));
     }
-  }, [code, facilities, getCheckFormByFacilityType]);
+  }, [code, facilities, loading, getCheckFormByFacilityType]);
 
   // 获取当前页面URL作为二维码内容
   const currentUrl = typeof window !== 'undefined' 
@@ -413,6 +474,27 @@ export default function PublicInspectPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">加载中...</h1>
           <p className="text-gray-500 dark:text-gray-400">
             正在获取设施信息，请稍候
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // 加载中状态
+  if (loading || directLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <motion.div 
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center max-w-md w-full"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <i className="fa-solid fa-spinner fa-spin text-4xl text-blue-500"></i>
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">加载中...</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            正在获取设施信息
           </p>
         </motion.div>
       </div>
