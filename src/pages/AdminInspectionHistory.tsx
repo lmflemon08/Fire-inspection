@@ -15,6 +15,10 @@ export default function AdminInspectionHistory() {
   const [selectedRecord, setSelectedRecord] = useState<InspectionRecord | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
+  
   // 过滤记录
   const filteredRecords = inspectionRecords.filter(record => {
     // 搜索过滤
@@ -43,6 +47,19 @@ export default function AdminInspectionHistory() {
     
     return matchesSearch && matchesStatus && matchesDate;
   });
+  
+  // 分页数据
+  const totalPages = Math.ceil(filteredRecords.length / pageSize);
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+  
+  // 当筛选条件改变时重置到第一页
+  const handleFilterChange = (setter: (value: any) => void) => (value: any) => {
+    setter(value);
+    setCurrentPage(1);
+  };
   
   // 查看详情
   const handleViewDetail = (record: InspectionRecord) => {
@@ -178,7 +195,7 @@ export default function AdminInspectionHistory() {
                     placeholder="搜索设施编号、类型、位置..."
                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => handleFilterChange(setSearchTerm)(e.target.value)}
                   />
                 </div>
               </div>
@@ -189,7 +206,7 @@ export default function AdminInspectionHistory() {
                 <select
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => handleFilterChange(setFilterStatus)(e.target.value)}
                 >
                   <option value="all">全部状态</option>
                   <option value="normal">正常</option>
@@ -269,7 +286,7 @@ export default function AdminInspectionHistory() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   <AnimatePresence>
-                    {filteredRecords.map((record) => (
+                    {paginatedRecords.map((record) => (
                       <motion.tr 
                         key={record.id}
                         className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -324,15 +341,87 @@ export default function AdminInspectionHistory() {
               </div>
             )}
             
-            {/* 统计信息 */}
+            {/* 统计信息和分页 */}
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
-              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-3">
                 <span>共 {filteredRecords.length} 条记录</span>
                 <span>
                   正常: {filteredRecords.filter(r => r.status === 'normal').length} | 
                   异常: {filteredRecords.filter(r => r.status === 'abnormal').length}
                 </span>
               </div>
+              
+              {/* 分页控件 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-600 pt-3">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
+                    第 {currentPage} 页 / 共 {totalPages} 页
+                    {paginatedRecords.length > 0 && (
+                      <span className="ml-2">
+                        (显示 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredRecords.length)} 条)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      首页
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      上一页
+                    </button>
+                    
+                    {/* 页码按钮 */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-1 text-sm border rounded-md ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      下一页
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      末页
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </main>
