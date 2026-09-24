@@ -25,6 +25,10 @@ export default function AdminFacilities() {
   // 批量选择状态
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
+  
   // Excel导入相关状态
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importData, setImportData] = useState<Partial<FireFacility>[]>([]);
@@ -127,6 +131,13 @@ export default function AdminFacilities() {
       return valueB.localeCompare(valueA);
     }
   });
+  
+  // 分页数据
+  const totalPages: number = Math.ceil(sortedFacilities.length / pageSize);
+  const paginatedFacilities = sortedFacilities.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   // 判断是否逾期
   const isOverdue = (dateStr: string): boolean => {
@@ -964,7 +975,7 @@ export default function AdminFacilities() {
                 type="text"
                 placeholder="搜索编号、类型、型号、放置点位..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => (e: React.ChangeEvent<HTMLInputElement>) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {searchTerm && (
@@ -1022,7 +1033,7 @@ export default function AdminFacilities() {
                     <th scope="col" className="px-2 py-2 w-8">
                       <input
                         type="checkbox"
-                        checked={selectedIds.size === sortedFacilities.length && sortedFacilities.length > 0}
+                        checked={selectedIds.size === paginatedFacilities.length && paginatedFacilities.length > 0}
                         onChange={handleSelectAll}
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
@@ -1040,7 +1051,7 @@ export default function AdminFacilities() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   <AnimatePresence>
-                     {sortedFacilities.map((facility) => (
+                     {paginatedFacilities.map((facility) => (
                        <motion.tr 
                          key={facility.id}
                          className={`hover:bg-gray-50 transition-colors ${selectedIds.has(facility.id) ? 'bg-blue-50' : ''}`}
