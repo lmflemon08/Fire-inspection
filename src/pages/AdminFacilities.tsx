@@ -993,7 +993,7 @@ export default function AdminFacilities() {
               <span className="text-sm text-gray-500">排序:</span>
               <select
                 value={sortField}
-                onChange={(e) => setSortField(e.target.value as SortField)}
+                onChange={(e) => { setSortField(e.target.value as SortField); setCurrentPage(1); }}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="code">编号</option>
@@ -1170,10 +1170,84 @@ export default function AdminFacilities() {
             </div>
              
              {/* 空状态 */}
-             {filteredFacilities.length === 0 && (
+             {sortedFacilities.length === 0 && (
                <div className="flex flex-col items-center justify-center py-12">
                  <i className="fa-solid fa-fire-extinguisher-slash text-gray-400 text-4xl mb-4"></i>
                  <p className="text-gray-500 dark:text-gray-400">没有找到匹配的消防设施</p>
+               </div>
+             )}
+             
+             {/* 分页控件 */}
+             {totalPages > 0 && (
+               <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                   <div className="text-xs text-gray-600">
+                     第 <span className="font-medium">{currentPage}</span> 页 / 共 <span className="font-medium">{totalPages}</span> 页
+                     {paginatedFacilities.length > 0 && (
+                       <span className="ml-2">
+                         (显示 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedFacilities.length)} 条，共 {sortedFacilities.length} 条)
+                       </span>
+                     )}
+                   </div>
+                   <div className="flex items-center space-x-1">
+                     <button
+                       onClick={() => setCurrentPage(1)}
+                       disabled={currentPage === 1}
+                       className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                     >
+                       首页
+                     </button>
+                     <button
+                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                       disabled={currentPage === 1}
+                       className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                     >
+                       上一页
+                     </button>
+                     
+                     {/* 页码按钮 - 最多 5 个 */}
+                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                       let pageNum;
+                       if (totalPages <= 5) {
+                         pageNum = i + 1;
+                       } else if (currentPage <= 3) {
+                         pageNum = i + 1;
+                       } else if (currentPage >= totalPages - 2) {
+                         pageNum = totalPages - 4 + i;
+                       } else {
+                         pageNum = currentPage - 2 + i;
+                       }
+                       return (
+                         <button
+                           key={pageNum}
+                           onClick={() => setCurrentPage(pageNum)}
+                           className={`min-w-[28px] px-2 py-1 text-xs border rounded ${
+                             currentPage === pageNum
+                               ? 'bg-blue-600 text-white border-blue-600'
+                               : 'border-gray-300 hover:bg-white'
+                           }`}
+                         >
+                           {pageNum}
+                         </button>
+                       );
+                     })}
+                     
+                     <button
+                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                       disabled={currentPage === totalPages}
+                       className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                     >
+                       下一页
+                     </button>
+                     <button
+                       onClick={() => setCurrentPage(totalPages)}
+                       disabled={currentPage === totalPages}
+                       className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                     >
+                       末页
+                     </button>
+                   </div>
+                 </div>
                </div>
              )}
           </motion.div>
