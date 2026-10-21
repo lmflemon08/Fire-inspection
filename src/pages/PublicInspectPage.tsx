@@ -320,8 +320,8 @@ export default function PublicInspectPage() {
   const isItemAbnormal = (item: CheckItem, answer: string | string[] | undefined): boolean => {
     if (!answer) return false;
     
-    // 检查称重类检查项
-    if (item.type === 'weight' && item.compareWithInitial && item.threshold) {
+    // 检查称重类检查项（type='weight' 或 type='number' 且 compareWithInitial=true）
+    if ((item.type === 'weight' || (item.type === 'number' && item.compareWithInitial)) && item.threshold) {
       const initialWeight = facility?.initialWeight;
       if (initialWeight && !isNaN(Number(answer))) {
         const diff = Math.abs(Number(answer) - initialWeight);
@@ -329,8 +329,8 @@ export default function PublicInspectPage() {
       }
     }
     
-    // 检查其他数值类检查项
-    if (item.type === 'number' && item.initialValue && item.threshold) {
+    // 检查其他数值类检查项（有 initialValue 但不与初始值比较）
+    if (item.type === 'number' && item.initialValue && item.threshold && !item.compareWithInitial) {
       if (!isNaN(Number(answer))) {
         const diff = Math.abs(Number(answer) - item.initialValue);
         if (diff > item.threshold) return true;
