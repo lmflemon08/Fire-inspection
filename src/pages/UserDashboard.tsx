@@ -21,7 +21,7 @@ export default function UserDashboard() {
   const [showScanner, setShowScanner] = useState(false);
 
   // 获取待检设施
-  const pendingFacilities = facilities.filter(f => f.status === 'pending');
+  const pendingFacilities = facilities.filter(f => f.status === 'stored');
   const normalFacilities = facilities.filter(f => f.status === 'normal');
   const abnormalFacilities = facilities.filter(f => f.status === 'abnormal');
   

@@ -9,19 +9,20 @@ import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const { logout } = useContext(AuthContext);
-  const { getFacilityStats, getMonthlyInspectionTasks, getUpcomingInspections, getOverdueInspections } = useData();
+  const { getFacilityStats, getMonthlyInspectionTasks, getUpcomingInspections, getOverdueInspections, getAbnormalIssues, facilities } = useData();
 
   // 从数据上下文获取巡检统计数据
   const facilityStats = getFacilityStats();
   const monthlyTasks = getMonthlyInspectionTasks();
   const upcomingInspections = getUpcomingInspections(7);
   const overdueInspections = getOverdueInspections();
+  const abnormalIssues = getAbnormalIssues();
   
   const inspectionStats = {
     total: facilityStats.total,
     normal: facilityStats.normal,
     abnormal: facilityStats.abnormal,
-    pending: facilityStats.pending,
+    stored: facilityStats.stored,
     monthlyTasks: monthlyTasks.length,
     upcomingInspections: upcomingInspections.length,
     overdueInspections: overdueInspections.length,
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
   const statusDistributionData = [
     { name: '正常', value: inspectionStats.normal, color: '#4ade80' },
     { name: '异常', value: inspectionStats.abnormal, color: '#f87171' },
-    { name: '待检', value: inspectionStats.pending, color: '#facc15' },
+    { name: '暂存', value: inspectionStats.stored, color: '#facc15' },
   ];
 
   // 统计卡片数据
@@ -323,6 +324,58 @@ export default function AdminDashboard() {
                         className="flex items-center text-red-600 dark:text-red-400 hover:underline"
                       >
                         +{overdueInspections.length - 4} 更多...
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* 异常问题 */}
+          {abnormalIssues.length > 0 && (
+            <motion.div 
+              className="mb-8"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              <motion.div 
+                variants={chartItemVariants}
+                className="rounded-xl shadow-sm overflow-hidden border"
+                style={{ backgroundColor: '#FFF2F0', borderColor: '#FFCCC7' }}
+              >
+                <div className="px-6 py-4 border-b" style={{ borderColor: '#FFCCC7' }}>
+                  <h2 className="text-lg font-semibold" style={{ color: '#CF1322' }}>
+                    <i className="fa-solid fa-triangle-exclamation mr-2"></i>
+                    异常问题 ({abnormalIssues.length})
+                  </h2>
+                </div>
+                <div className="p-6">
+                  <div className="flex flex-wrap gap-4">
+                    {abnormalIssues.slice(0, 4).map((record) => {
+                      const facility = facilities.find(f => f.id === record.facilityId);
+                      return (
+                        <div key={record.id} className="bg-white rounded-lg p-4 flex items-center space-x-4 shadow-sm border border-gray-100">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF1F0' }}>
+                            <i className="fa-solid fa-circle-exclamation" style={{ color: '#CF1322' }}></i>
+                          </div>
+                          <div>
+                            <p className="font-medium" style={{ color: '#333333' }}>{record.facilityCode}</p>
+                            <p className="text-sm" style={{ color: '#595959' }}>{facility?.location || ''}</p>
+                            <p className="text-xs" style={{ color: '#CF1322' }}>
+                              巡检日期：{record.date}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {abnormalIssues.length > 4 && (
+                      <Link 
+                        to="/admin/inspection-history" 
+                        className="flex items-center text-red-600 hover:underline"
+                      >
+                        +{abnormalIssues.length - 4} 更多...
                       </Link>
                     )}
                   </div>
