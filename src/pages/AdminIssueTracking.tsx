@@ -18,9 +18,6 @@ interface IssueItem {
   discoverer: string;
   discovererId: string;
   status: 'pending' | 'rectifying' | 'resolved';
-  priority: 'high' | 'medium' | 'low';
-  assignee: string;
-  dueDate: string;
   resolvedDate?: string;
   resolutionNotes?: string;
   answers?: { question: string; answer: string | string[] }[];  // 检查项答案
@@ -28,43 +25,34 @@ interface IssueItem {
 
 export default function AdminIssueTracking() {
   const { logout } = useContext(AuthContext);
-  const { getAbnormalIssues } = useData();
-  
-  // 从巡检记录获取异常问题
+  const { getAbnormalIssues, updateInspectionIssue } = useData();
+
+  // 从巡检记录获取异常问题（整改状态持久化在数据库 inspection_records.issue_status）
   const abnormalRecords = getAbnormalIssues();
-  
-  // 将巡检异常记录转换为问题清单格式
-  const [issueStatusMap, setIssueStatusMap] = useState<Record<string, { status: IssueItem['status']; priority: IssueItem['priority']; assignee: string; dueDate: string; resolvedDate?: string; resolutionNotes?: string }>>({});
-  
+
+  const [submitting, setSubmitting] = useState(false);
+
   const issues: IssueItem[] = useMemo(() => {
-    return abnormalRecords.map(record => {
-      const existingStatus = issueStatusMap[record.id];
-      
-      return {
-        id: `issue-${record.id}`,
-        recordId: record.id,
-        facilityCode: record.facilityCode,
-        facilityType: record.type,
-        facilityLocation: record.facilityName,
-        issueDescription: record.notes || '巡检发现异常',
-        discoveredDate: record.date,
-        discoveredTime: record.time,
-        discoverer: record.inspectorName,
-        discovererId: record.inspectorId,
-        status: existingStatus?.status || 'pending',
-        priority: existingStatus?.priority || 'high',
-        assignee: existingStatus?.assignee || '',
-        dueDate: existingStatus?.dueDate || '',
-        resolvedDate: existingStatus?.resolvedDate,
-        resolutionNotes: existingStatus?.resolutionNotes,
-        answers: record.answers
-      };
-    });
-  }, [abnormalRecords, issueStatusMap]);
-  
+    return abnormalRecords.map(record => ({
+      id: `issue-${record.id}`,
+      recordId: record.id,
+      facilityCode: record.facilityCode,
+      facilityType: record.type,
+      facilityLocation: record.facilityName,
+      issueDescription: record.notes || '巡检发现异常',
+      discoveredDate: record.date,
+      discoveredTime: record.time,
+      discoverer: record.inspectorName,
+      discovererId: record.inspectorId,
+      status: record.issueStatus || 'pending',
+      resolvedDate: record.resolvedDate,
+      resolutionNotes: record.resolutionNotes,
+      answers: record.answers
+    }));
+  }, [abnormalRecords]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterPriority, setFilterPriority] = useState<string>('all');
   const [selectedIssue, setSelectedIssue] = useState<IssueItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
@@ -85,10 +73,7 @@ export default function AdminIssueTracking() {
     // 状态过滤
     const matchesStatus = filterStatus === 'all' || issue.status === filterStatus;
     
-    // 优先级过滤
-    const matchesPriority = filterPriority === 'all' || issue.priority === filterPriority;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus;
   });
   
   // 统计数据
@@ -97,7 +82,6 @@ export default function AdminIssueTracking() {
     pending: issues.filter(i => i.status === 'pending').length,
     rectifying: issues.filter(i => i.status === 'rectifying').length,
     resolved: issues.filter(i => i.status === 'resolved').length,
-    high: issues.filter(i => i.priority === 'high' && i.status !== 'resolved').length
   };
   
   // 查看详情
@@ -116,27 +100,29 @@ export default function AdminIssueTracking() {
     setIsUpdateModalOpen(true);
   };
   
-  // 更新问题状态
-  const handleUpdateIssue = (e: React.FormEvent) => {
+  // 更新问题状态（持久化到数据库）
+  const handleUpdateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedIssue) return;
+    if (submitting) return;
     
-    setIssueStatusMap(prev => ({
-      ...prev,
-      [selectedIssue.recordId]: {
-        status: updateFormData.status,
-        priority: selectedIssue.priority,
-        assignee: selectedIssue.assignee,
-        dueDate: selectedIssue.dueDate,
-        resolutionNotes: updateFormData.resolutionNotes,
-        resolvedDate: updateFormData.status === 'resolved' ? new Date().toISOString().split('T')[0] : undefined
-      }
-    }));
-    
-    setIsUpdateModalOpen(false);
-    setSelectedIssue(null);
-    toast.success('问题状态更新成功');
+    setSubmitting(true);
+    try {
+      await updateInspectionIssue(selectedIssue.recordId, {
+        issueStatus: updateFormData.status,
+        resolutionNotes: updateFormData.resolutionNotes
+      });
+      
+      setIsUpdateModalOpen(false);
+      setSelectedIssue(null);
+      toast.success('问题状态更新成功');
+    } catch (error) {
+      console.error('更新问题状态失败:', error);
+      toast.error('更新失败，请重试');
+    } finally {
+      setSubmitting(false);
+    }
   };
   
   // 获取状态样式
@@ -322,7 +308,6 @@ export default function AdminIssueTracking() {
                 onClick={() => {
                   setSearchTerm('');
                   setFilterStatus('all');
-                  setFilterPriority('all');
                 }}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-300"
               >
@@ -481,11 +466,7 @@ export default function AdminIssueTracking() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">发现日期</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{selectedIssue.discoveredDate}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">负责人</label>
-                    <p className="text-gray-900 dark:text-white font-medium">{selectedIssue.assignee}</p>
+                    <p className="text-gray-900 dark:text-white font-medium">{selectedIssue.discoveredDate} {selectedIssue.discoveredTime}</p>
                   </div>
                 </div>
                 
@@ -629,9 +610,10 @@ export default function AdminIssueTracking() {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300"
+                    disabled={submitting}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition duration-300"
                   >
-                    保存
+                    {submitting ? '保存中...' : '保存'}
                   </button>
                 </div>
               </form>

@@ -67,6 +67,10 @@ export interface InspectionRecord {
   photos?: string[];
   date: string;
   time: string;
+  // 问题整改状态（仅异常记录使用）
+  issueStatus?: 'pending' | 'rectifying' | 'resolved';
+  resolutionNotes?: string;
+  resolvedDate?: string;
 }
 
 // 用户类型定义
@@ -107,6 +111,7 @@ export interface DataContextType {
   // 巡检记录
   inspectionRecords: InspectionRecord[];
   addInspectionRecord: (record: Omit<InspectionRecord, 'id'>) => void;
+  updateInspectionIssue: (recordId: string, data: { issueStatus: 'pending' | 'rectifying' | 'resolved'; resolutionNotes?: string }) => Promise<void>;
   
   // 统计数据
   getFacilityStats: () => {
@@ -239,7 +244,10 @@ const dbToInspectionRecord = (db: any): InspectionRecord => ({
   notes: db.notes,
   answers: typeof db.answers === 'string' ? JSON.parse(db.answers) : db.answers,
   date: dateToStr(db.date) || '',
-  time: db.time
+  time: db.time,
+  issueStatus: (db.issue_status as InspectionRecord['issueStatus']) || undefined,
+  resolutionNotes: db.resolution_notes || undefined,
+  resolvedDate: dateToStr(db.resolved_date) || undefined
 });
 
 const inspectionRecordToDb = (record: Omit<InspectionRecord, 'id'>) => ({
@@ -489,8 +497,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const dbRecord = inspectionRecordToDb(record);
     
     await sql`
-      INSERT INTO inspection_records (id, facility_id, facility_code, facility_name, type, status, inspector_id, inspector_name, notes, answers, date, time)
-      VALUES (${dbRecord.id}, ${dbRecord.facility_id}, ${dbRecord.facility_code}, ${dbRecord.facility_name || null}, ${dbRecord.type || null}, ${dbRecord.status}, ${dbRecord.inspector_id || null}, ${dbRecord.inspector_name || null}, ${dbRecord.notes || null}, ${JSON.stringify(dbRecord.answers)}::jsonb, ${dbRecord.date || null}, ${dbRecord.time || null})
+      INSERT INTO inspection_records (id, facility_id, facility_code, facility_name, type, status, inspector_id, inspector_name, notes, answers, date, time, issue_status)
+      VALUES (${dbRecord.id}, ${dbRecord.facility_id}, ${dbRecord.facility_code}, ${dbRecord.facility_name || null}, ${dbRecord.type || null}, ${dbRecord.status}, ${dbRecord.inspector_id || null}, ${dbRecord.inspector_name || null}, ${dbRecord.notes || null}, ${JSON.stringify(dbRecord.answers)}::jsonb, ${dbRecord.date || null}, ${dbRecord.time || null}, ${dbRecord.status === 'abnormal' ? 'pending' : null})
     `;
     
     // 自动更新设施状态：上次巡检时间 + 下次巡检时间
@@ -526,6 +534,60 @@ export function DataProvider({ children }: { children: ReactNode }) {
       id: dbRecord.id
     };
     setInspectionRecords(prev => [newRecord, ...prev]);
+  }, []);
+
+  // 更新问题整改状态
+  const updateInspectionIssue = useCallback(async (
+    recordId: string,
+    data: { issueStatus: 'pending' | 'rectifying' | 'resolved'; resolutionNotes?: string }
+  ) => {
+    const resolvedDate = data.issueStatus === 'resolved'
+      ? (() => {
+          const d = new Date();
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${dd}`;
+        })()
+      : null;
+
+    await sql`
+      UPDATE inspection_records
+      SET issue_status = ${data.issueStatus},
+          resolution_notes = ${data.resolutionNotes || null},
+          resolved_date = ${resolvedDate}
+      WHERE id = ${recordId}
+    `;
+
+    // 问题整改完成后，将关联设施状态恢复为正常
+    if (data.issueStatus === 'resolved') {
+      const recordRes: any[] = await sql`SELECT facility_id FROM inspection_records WHERE id = ${recordId}`;
+      if (recordRes && recordRes.length > 0) {
+        const facilityId = recordRes[0].facility_id;
+        // 仅当该设施没有其他未整改的异常记录时才恢复正常
+        const openIssues: any[] = await sql`
+          SELECT COUNT(*) as cnt FROM inspection_records
+          WHERE facility_id = ${facilityId}
+            AND status = 'abnormal'
+            AND COALESCE(issue_status, 'pending') <> 'resolved'
+        `;
+        const openCount = Number(openIssues?.[0]?.cnt || 0);
+        if (openCount === 0) {
+          await sql`UPDATE facilities SET status = 'normal', updated_at = NOW() WHERE id = ${facilityId} AND status = 'abnormal'`;
+          setFacilities(prev => prev.map(f => f.id === facilityId ? { ...f, status: 'normal' as const } : f));
+        }
+      }
+    }
+
+    setInspectionRecords(prev => prev.map(r => {
+      if (r.id !== recordId) return r;
+      return {
+        ...r,
+        issueStatus: data.issueStatus,
+        resolutionNotes: data.resolutionNotes || undefined,
+        resolvedDate: resolvedDate || undefined
+      };
+    }));
   }, []);
 
   // 统计数据
@@ -622,6 +684,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     getCheckFormByFacilityType,
     inspectionRecords,
     addInspectionRecord,
+    updateInspectionIssue,
     getFacilityStats,
     getMonthlyInspectionTasks,
     getUpcomingInspections,

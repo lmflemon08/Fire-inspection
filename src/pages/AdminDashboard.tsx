@@ -61,7 +61,7 @@ export default function AdminDashboard() {
     visible: { 
       y: 0, 
       opacity: 1,
-      transition: { type: 'spring', stiffness: 100 }
+      transition: { type: 'spring' as const, stiffness: 100 }
     }
   };
 
@@ -332,8 +332,8 @@ export default function AdminDashboard() {
             </motion.div>
           )}
 
-          {/* 异常问题 */}
-          {abnormalIssues.length > 0 && (
+          {/* 异常问题（未整改/整改中） */}
+          {abnormalIssues.filter(r => (r.issueStatus || 'pending') !== 'resolved').length > 0 && (
             <motion.div 
               className="mb-8"
               variants={containerVariants}
@@ -348,34 +348,38 @@ export default function AdminDashboard() {
                 <div className="px-6 py-4 border-b" style={{ borderColor: '#FFCCC7' }}>
                   <h2 className="text-lg font-semibold" style={{ color: '#CF1322' }}>
                     <i className="fa-solid fa-triangle-exclamation mr-2"></i>
-                    异常问题 ({abnormalIssues.length})
+                    待整改异常 ({abnormalIssues.filter(r => (r.issueStatus || 'pending') !== 'resolved').length})
                   </h2>
                 </div>
                 <div className="p-6">
                   <div className="flex flex-wrap gap-4">
-                    {abnormalIssues.slice(0, 4).map((record) => {
-                      const facility = facilities.find(f => f.id === record.facilityId);
-                      return (
-                        <div key={record.id} className="bg-white rounded-lg p-4 flex items-center space-x-4 shadow-sm border border-gray-100">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFF1F0' }}>
-                            <i className="fa-solid fa-circle-exclamation" style={{ color: '#CF1322' }}></i>
+                    {abnormalIssues
+                      .filter(r => (r.issueStatus || 'pending') !== 'resolved')
+                      .slice(0, 4)
+                      .map((record) => {
+                        const facility = facilities.find(f => f.id === record.facilityId);
+                        const isRectifying = record.issueStatus === 'rectifying';
+                        return (
+                          <div key={record.id} className="bg-white rounded-lg p-4 flex items-center space-x-4 shadow-sm border border-gray-100">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isRectifying ? '#E6F4FF' : '#FFF1F0' }}>
+                              <i className={`fa-solid ${isRectifying ? 'fa-wrench' : 'fa-circle-exclamation'}`} style={{ color: isRectifying ? '#1677FF' : '#CF1322' }}></i>
+                            </div>
+                            <div>
+                              <p className="font-medium" style={{ color: '#333333' }}>{record.facilityCode}</p>
+                              <p className="text-sm" style={{ color: '#595959' }}>{facility?.location || ''}</p>
+                              <p className="text-xs" style={{ color: isRectifying ? '#1677FF' : '#CF1322' }}>
+                                {isRectifying ? '整改中' : '待整改'} · 发现于 {record.date}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium" style={{ color: '#333333' }}>{record.facilityCode}</p>
-                            <p className="text-sm" style={{ color: '#595959' }}>{facility?.location || ''}</p>
-                            <p className="text-xs" style={{ color: '#CF1322' }}>
-                              巡检日期：{record.date}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {abnormalIssues.length > 4 && (
+                        );
+                      })}
+                    {abnormalIssues.filter(r => (r.issueStatus || 'pending') !== 'resolved').length > 4 && (
                       <Link 
-                        to="/admin/inspection-history" 
+                        to="/admin/issue-tracking" 
                         className="flex items-center text-red-600 hover:underline"
                       >
-                        +{abnormalIssues.length - 4} 更多...
+                        +{abnormalIssues.filter(r => (r.issueStatus || 'pending') !== 'resolved').length - 4} 更多...
                       </Link>
                     )}
                   </div>

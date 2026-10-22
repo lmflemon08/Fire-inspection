@@ -9,7 +9,9 @@
     "preview": "vite preview --port 5000 --host",
     "start": "vite preview --port 5000 --host",
     "lint": "echo 'lint skipped'",
-    "ts-check": "echo 'ts-check skipped'"
+    "ts-check": "echo 'ts-check skipped'",
+    "lint:build": "eslint . --quiet",
+    "validate": "pnpm run --parallel '/^(ts-check|lint:build)$/'"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
