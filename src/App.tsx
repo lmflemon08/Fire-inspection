@@ -44,30 +44,33 @@ export default function App() {
   };
 
   return (
-    <DataProvider>
-      <AuthContext.Provider
-        value={{ isAuthenticated, userInfo, setIsAuthenticated, setUserInfo, logout }}
-      >
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/login" element={<Login />} />
-          {/* 公开页面 - 微信扫码访问 */}
-          <Route path="/inspect/:code" element={<PublicInspectPage />} />
-<Route path="/inspect/:code/scan" element={<PublicInspectScanPage />} />
-<Route path="/inspect/:code/history" element={<PublicInspectionHistoryPage />} />
-          {/* 用户端 */}
-          <Route path="/user" element={isAuthenticated && userInfo?.role === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
-          {/* 管理端 */}
-          <Route path="/admin" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
-          <Route path="/admin/inspection-plans" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminInspectionPlans /> : <Navigate to="/login" />} />
-          <Route path="/admin/users" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminUsers /> : <Navigate to="/login" />} />
-          <Route path="/admin/facilities" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminFacilities /> : <Navigate to="/login" />} />
-          <Route path="/admin/forms" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminForms /> : <Navigate to="/login" />} />
-          <Route path="/admin/inspection-history" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminInspectionHistory /> : <Navigate to="/login" />} />
-          <Route path="/admin/issues" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminIssueTracking /> : <Navigate to="/login" />} />
-          <Route path="/admin/assistant" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminAssistant /> : <Navigate to="/login" />} />
-        </Routes>
-      </AuthContext.Provider>
-    </DataProvider>
+    <AuthContext.Provider
+      value={{ isAuthenticated, userInfo, setIsAuthenticated, setUserInfo, logout }}
+    >
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" />} />
+        <Route path="/login" element={<Login />} />
+        {/* 公开页面 - 微信扫码访问（不依赖 DataProvider，直接查库） */}
+        <Route path="/inspect/:code" element={<PublicInspectPage />} />
+        <Route path="/inspect/:code/scan" element={<PublicInspectScanPage />} />
+        <Route path="/inspect/:code/history" element={<PublicInspectionHistoryPage />} />
+        {/* 需要 DataProvider 的页面 */}
+        <Route path="/*" element={
+          <DataProvider>
+            <Routes>
+              <Route path="/user" element={isAuthenticated && userInfo?.role === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
+              <Route path="/admin" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />} />
+              <Route path="/admin/inspection-plans" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminInspectionPlans /> : <Navigate to="/login" />} />
+              <Route path="/admin/users" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminUsers /> : <Navigate to="/login" />} />
+              <Route path="/admin/facilities" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminFacilities /> : <Navigate to="/login" />} />
+              <Route path="/admin/forms" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminForms /> : <Navigate to="/login" />} />
+              <Route path="/admin/inspection-history" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminInspectionHistory /> : <Navigate to="/login" />} />
+              <Route path="/admin/issues" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminIssueTracking /> : <Navigate to="/login" />} />
+              <Route path="/admin/assistant" element={isAuthenticated && userInfo?.role === 'admin' ? <AdminAssistant /> : <Navigate to="/login" />} />
+            </Routes>
+          </DataProvider>
+        } />
+      </Routes>
+    </AuthContext.Provider>
   );
 }
