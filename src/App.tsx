@@ -12,6 +12,8 @@ import AdminInspectionHistory from "@/pages/AdminInspectionHistory";
 import AdminIssueTracking from "@/pages/AdminIssueTracking";
 import AdminInspectionPlans from "@/pages/AdminInspectionPlans";
 import PublicInspectPage from "@/pages/PublicInspectPage";
+import PublicInspectScanPage from "@/pages/PublicInspectScanPage";
+import PublicInspectionHistoryPage from "@/pages/PublicInspectionHistoryPage";
 import { AuthContext, UserInfo } from '@/contexts/authContext';
 import { DataProvider } from '@/contexts/DataContext';
 
@@ -51,6 +53,8 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           {/* 公开页面 - 微信扫码访问 */}
           <Route path="/inspect/:code" element={<PublicInspectPage />} />
+<Route path="/inspect/:code/scan" element={<PublicInspectScanPage />} />
+<Route path="/inspect/:code/history" element={<PublicInspectionHistoryPage />} />
           {/* 用户端 */}
           <Route path="/user" element={isAuthenticated && userInfo?.role === 'user' ? <UserDashboard /> : <Navigate to="/login" />} />
           {/* 管理端 */}
