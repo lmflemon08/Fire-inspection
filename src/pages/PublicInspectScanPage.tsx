@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { sql } from '../lib/db';
 import { AuthContext } from '@/contexts/authContext';
-import { useData, CheckForm, CheckItem, CheckItemAnswer, InspectionCycle } from '@/contexts/DataContext';
+import type { CheckForm, CheckItem, CheckItemAnswer, InspectionCycle } from '@/contexts/DataContext';
 
 // 根据巡检周期计算下次巡检日期
 const calculateNextInspectionDate = (currentDate: Date, cycle: InspectionCycle): string => {
@@ -53,7 +53,6 @@ export default function PublicInspectScanPage() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, userInfo } = useContext(AuthContext);
-  const { updateFacility, addInspectionRecord, getCheckFormByFacilityType, loading: ctxLoading } = useData();
 
   const [facility, setFacility] = useState<FacilityData | null>(null);
   const [checkForm, setCheckForm] = useState<CheckForm | null>(null);
@@ -66,15 +65,20 @@ export default function PublicInspectScanPage() {
   const [inspectionResult, setInspectionResult] = useState<'normal' | 'abnormal'>('normal');
   const [nextDate, setNextDate] = useState('');
 
-  // 加载设施信息
+  // 加载设施信息 + 检查表单（直接查数据库，不依赖 DataProvider）
   useEffect(() => {
     if (!code) return;
+    let cancelled = false;
     setLoading(true);
 
-    sql`SELECT * FROM facilities WHERE code = ${code} LIMIT 1`
-      .then((rows: any[]) => {
-        if (rows && rows.length > 0) {
-          const db = rows[0];
+    Promise.all([
+      sql`SELECT * FROM facilities WHERE code = ${code} LIMIT 1`,
+      sql`SELECT * FROM check_forms ORDER BY created_at ASC`
+    ])
+      .then(([facilityRows, formRows]: [any[], any[]]) => {
+        if (cancelled) return;
+        if (facilityRows && facilityRows.length > 0) {
+          const db = facilityRows[0];
           const f: FacilityData = {
             id: db.id,
             code: db.code,
@@ -89,28 +93,43 @@ export default function PublicInspectScanPage() {
             initialWeight: db.initial_weight ? Number(db.initial_weight) : undefined,
           };
           setFacility(f);
+
+          // 从表单列表中找到匹配的检查表单
+          if (formRows && formRows.length > 0) {
+            const formDb = formRows.find((fr: any) => fr.facility_type === f.type) || formRows[0];
+            if (formDb) {
+              const form: CheckForm = {
+                id: formDb.id,
+                name: formDb.name,
+                facilityType: formDb.facility_type,
+                items: formDb.items || []
+              };
+              setCheckForm(form);
+              const initial: Record<string, string | string[]> = {};
+              form.items.forEach((item: CheckItem) => {
+                initial[item.id] = item.type === 'checkbox' ? [] : '';
+              });
+              setAnswers(initial);
+            }
+          }
         }
       })
-      .catch((err: any) => console.error('查询设施失败:', err))
-      .finally(() => setLoading(false));
+      .catch((err: any) => {
+        if (!cancelled) console.error('加载数据失败:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [code]);
 
-  // 加载检查表单
+  // 登录后自动填充巡检人
   useEffect(() => {
-    if (!facility || ctxLoading) return;
-    const form = getCheckFormByFacilityType(facility.type);
-    setCheckForm(form || null);
-    if (form) {
-      const initial: Record<string, string | string[]> = {};
-      form.items.forEach(item => {
-        initial[item.id] = item.type === 'checkbox' ? [] : '';
-      });
-      setAnswers(initial);
-    }
     if (isAuthenticated && userInfo?.name) {
       setInspectorName(userInfo.name);
     }
-  }, [facility, ctxLoading, getCheckFormByFacilityType, isAuthenticated, userInfo]);
+  }, [isAuthenticated, userInfo]);
 
   // 判断单个检查项是否异常
   const isItemAbnormal = (item: CheckItem, answer: string | string[] | undefined): boolean => {
@@ -185,11 +204,8 @@ export default function PublicInspectScanPage() {
       const next = calculateNextInspectionDate(new Date(), facility.inspectionCycle);
       setNextDate(next);
 
-      await updateFacility(facility.id, {
-        status,
-        lastInspectionDate: currentDate,
-        nextInspectionDate: next
-      });
+      const now = new Date();
+      const recordId = crypto.randomUUID();
 
       const checkItemAnswers: CheckItemAnswer[] = [];
       if (checkForm) {
@@ -204,20 +220,17 @@ export default function PublicInspectScanPage() {
         });
       }
 
-      const now = new Date();
-      await addInspectionRecord({
-        facilityId: facility.id,
-        facilityCode: facility.code,
-        facilityName: facility.location,
-        type: facility.type,
-        status,
-        inspectorId: userInfo?.id || '',
-        inspectorName: inspectorName || userInfo?.name || '未知',
-        notes: inspectionNotes || undefined,
-        answers: checkItemAnswers,
-        date: currentDate,
-        time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-      });
+      // 直接插入巡检记录
+      await sql`
+        INSERT INTO inspection_records (id, facility_id, facility_code, facility_name, type, status, inspector_id, inspector_name, notes, answers, date, time, issue_status)
+        VALUES (${recordId}, ${facility.id}, ${facility.code}, ${facility.location || null}, ${facility.type || null}, ${status}, ${userInfo?.id || null}, ${inspectorName || userInfo?.name || '未知'}, ${inspectionNotes || null}, ${JSON.stringify(checkItemAnswers)}::jsonb, ${currentDate}, ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}, ${status === 'abnormal' ? 'pending' : null})
+      `;
+
+      // 更新设施状态与巡检日期
+      await sql`
+        UPDATE facilities SET status = ${status}, last_inspection_date = ${currentDate}, next_inspection_date = ${next}, updated_at = NOW()
+        WHERE id = ${facility.id}
+      `;
 
       setInspectionResult(status);
       setInspectionComplete(true);
@@ -243,7 +256,7 @@ export default function PublicInspectScanPage() {
   };
 
   // 加载中
-  if (loading || ctxLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
         <motion.div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-sm w-full"
