@@ -1,7 +1,7 @@
 import { useContext, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext, UserInfo } from '@/contexts/authContext';
-import { useData } from '@/contexts/DataContext';
+import { sql } from '@/lib/db';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -10,7 +10,6 @@ const REMEMBER_KEY = 'rememberedLogin';
 
 export default function Login() {
   const { setIsAuthenticated, setUserInfo } = useContext(AuthContext);
-  const { users } = useData();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '';
@@ -39,16 +38,19 @@ export default function Login() {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // 模拟登录延迟
-    setTimeout(() => {
-      // 从数据上下文查找匹配的用户
-      const foundUser = users.find(
-        u => u.username === username && u.password === password && u.role === role && u.status === 'active'
-      );
+    try {
+      // 直接从数据库校验用户（登录页在 DataProvider 之外）
+      const rows = await sql`
+        SELECT id, username, password, name, role, department, status
+        FROM users
+        WHERE username = ${username} AND password = ${password} AND role = ${role} AND status = 'active'
+        LIMIT 1
+      `;
+      const foundUser = rows[0] as { id: string; username: string; role: 'admin' | 'user'; name: string; department: string } | undefined;
 
       if (foundUser) {
         // 登录成功，构建用户信息（不包含密码）
@@ -91,9 +93,12 @@ export default function Login() {
         // 登录失败
         toast.error('用户名、密码或角色不正确，或账号已禁用');
       }
+    } catch (err) {
+      console.error('登录失败:', err);
+      toast.error('登录失败，请稍后重试');
+    }
       
-      setIsLoading(false);
-    }, 1000);
+    setIsLoading(false);
   };
 
   // 动画变体
