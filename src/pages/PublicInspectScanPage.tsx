@@ -342,7 +342,7 @@ export default function PublicInspectScanPage() {
                     const scannedCode = decodedText.includes('inspect')
                       ? decodedText.split('/inspect/')[1]?.split('/')[0] || decodedText
                       : decodedText;
-                    navigate(`/inspect/${scannedCode}/scan`);
+                    navigate(`/inspect/${scannedCode}`);
                   }}
                   onCancel={() => setShowScanner(false)}
                 />
