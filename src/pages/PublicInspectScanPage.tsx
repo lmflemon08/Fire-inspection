@@ -1,9 +1,10 @@
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { sql } from '../lib/db';
 import { AuthContext } from '@/contexts/authContext';
+import { QRCodeScanner } from '@/components/QRCodeScanner';
 import type { CheckForm, CheckItem, CheckItemAnswer, InspectionCycle } from '@/contexts/DataContext';
 
 // 根据巡检周期计算下次巡检日期
@@ -56,6 +57,7 @@ export default function PublicInspectScanPage() {
 
   const [facility, setFacility] = useState<FacilityData | null>(null);
   const [checkForm, setCheckForm] = useState<CheckForm | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inspectorName, setInspectorName] = useState('');
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
@@ -309,13 +311,45 @@ export default function PublicInspectScanPage() {
             <p className="text-gray-500 text-sm mb-1">{facility.code} - {facility.type}</p>
             <p className="text-gray-500 text-sm mb-4">下次巡检时间：{nextDate}</p>
             <div className="space-y-3">
+              <button onClick={() => setShowScanner(true)}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl py-3 font-medium transition-all shadow-lg shadow-green-200">
+                <i className="fa-solid fa-qrcode mr-2"></i>继续点检下一个设施
+              </button>
               <button onClick={() => navigate(`/inspect/${code}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-medium transition-colors">
+                className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl py-3 font-medium transition-colors">
                 <i className="fa-solid fa-arrow-left mr-2"></i>返回设施信息
               </button>
             </div>
           </motion.div>
         </div>
+
+        {/* 二维码扫描器 */}
+        <AnimatePresence>
+          {showScanner && (
+            <motion.div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden">
+                <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 flex items-center justify-between">
+                  <span className="font-semibold">扫描下一个设施</span>
+                  <button onClick={() => setShowScanner(false)} className="p-1">
+                    <i className="fa-solid fa-xmark text-xl"></i>
+                  </button>
+                </div>
+                <QRCodeScanner
+                  onScanSuccess={(decodedText) => {
+                    setShowScanner(false);
+                    // 提取设施编号（兼容多种二维码格式）
+                    const scannedCode = decodedText.includes('inspect')
+                      ? decodedText.split('/inspect/')[1]?.split('/')[0] || decodedText
+                      : decodedText;
+                    navigate(`/inspect/${scannedCode}/scan`);
+                  }}
+                  onCancel={() => setShowScanner(false)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
